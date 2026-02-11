@@ -12,7 +12,7 @@ import type { Member, Sector, InventoryItem, Evaluation } from '../context/Stora
 import { supabase } from '../lib/supabase';
 
 export default function Admin() {
-    const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, userRole, removeEvaluation } = useStorage();
+    const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, userRole, removeEvaluation, approveLoanReturn } = useStorage();
 
     // Define tabs and permissions
     const allTabs = [
@@ -609,6 +609,88 @@ export default function Admin() {
                                         )}
                                     </tbody>
                                 </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+
+                    {/* Return Approvals */}
+                    <Card className="border-t-4 border-t-yellow-500">
+                        <CardHeader>
+                            <CardTitle className="flex justify-between items-center">
+                                <span>Aprovações Pendentes</span>
+                                <span className="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-yellow-200 dark:text-yellow-900">
+                                    {loans.filter(l => l.status === 'Aguardando Aprovação').length} pendentes
+                                </span>
+                            </CardTitle>
+                            <CardDescription>Valide as devoluções de materiais.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {loans.filter(l => l.status === 'Aguardando Aprovação').length === 0 ? (
+                                    <p className="text-secondary-500 text-center py-4">Nenhuma devolução pendente de aprovação.</p>
+                                ) : (
+                                    loans.filter(l => l.status === 'Aguardando Aprovação').map(loan => (
+                                        <div key={loan.id} className="bg-secondary-50 dark:bg-secondary-900 border border-secondary-200 dark:border-secondary-800 p-4 rounded-lg flex flex-col md:flex-row gap-4">
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-bold text-lg">{loan.itemName}</h4>
+                                                        <p className="text-secondary-600 dark:text-secondary-400 text-sm">Devolvido por: <span className="font-semibold">{loan.userName}</span></p>
+                                                        <p className="text-secondary-500 text-xs mt-1">Data Retirada: {new Date(loan.date).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-4 mt-4">
+                                                    {loan.withdrawalPhotoUrl && (
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-xs font-medium text-secondary-500">Retirada</span>
+                                                            <a href={loan.withdrawalPhotoUrl} target="_blank" rel="noopener noreferrer">
+                                                                <img src={loan.withdrawalPhotoUrl} alt="Retirada" className="w-24 h-24 object-cover rounded border hover:scale-105 transition-transform" />
+                                                            </a>
+                                                        </div>
+                                                    )}
+                                                    {loan.returnPhotoUrl && (
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-xs font-medium text-secondary-500">Devolução</span>
+                                                            <a href={loan.returnPhotoUrl} target="_blank" rel="noopener noreferrer">
+                                                                <img src={loan.returnPhotoUrl} alt="Devolução" className="w-24 h-24 object-cover rounded border hover:scale-105 transition-transform" />
+                                                            </a>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col justify-center gap-2 min-w-[200px]">
+                                                <Button
+                                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                                    onClick={async () => {
+                                                        if (confirm('Confirmar que o item foi devolvido em boas condições?')) {
+                                                            await approveLoanReturn(loan.id, 'ok');
+                                                            toast.success('Devolução aprovada!');
+                                                        }
+                                                    }}
+                                                >
+                                                    <Check className="mr-2 h-4 w-4" /> Aprovar (OK)
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                    onClick={async () => {
+                                                        const notes = prompt('Descreva o problema (ex: sujo, quebrado):');
+                                                        if (notes) {
+                                                            const condition = confirm('O item está danificado?') ? 'damaged' : 'dirty';
+                                                            await approveLoanReturn(loan.id, condition, notes);
+                                                            toast.success('Problema reportado e devolução processada.');
+                                                        }
+                                                    }}
+                                                >
+                                                    <ShieldAlert className="mr-2 h-4 w-4" /> Reportar Problema
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </CardContent>
                     </Card>

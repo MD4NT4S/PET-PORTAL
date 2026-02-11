@@ -16,7 +16,8 @@ import {
     Moon,
     GraduationCap,
     LogOut,
-    Box
+    Box,
+    Package
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
@@ -76,6 +77,7 @@ export function MainLayout() {
         { to: '/conhecimento', icon: FileText, label: 'Base de Conhecimento' },
         { to: '/feedback', icon: Heart, label: 'Feedback 360' },
         { to: '/infraestrutura', icon: Box, label: 'Infraestrutura' },
+        { to: '/my-requests', icon: Package, label: 'Minhas Solicitações' },
         ...(isAdmin ? [{ to: '/admin', icon: Settings, label: 'Admin' }] : []),
     ];
 
