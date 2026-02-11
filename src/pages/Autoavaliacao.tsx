@@ -276,7 +276,7 @@ export default function Autoavaliacao() {
                                 Avalie seu relacionamento com cada membro do grupo. Considere a comunicação, colaboração e convivência.
                             </p>
                             {members
-                                .filter(m => m.name !== currentUser)
+                                .filter(m => m.name !== currentUser && m.role === 'member')
                                 .map(member => (
                                     <Controller
                                         key={member.id}
