@@ -3,6 +3,7 @@ import { useStorage } from '../context/StorageContext';
 import { Modal } from '../components/ui/Modal';
 import { Package, Info, ArrowUpRight, CheckCircle2, GripVertical } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { toast } from 'sonner';
 import type { Sector, InventoryItem } from '../context/StorageContext';
 import { supabase } from '../lib/supabase';
@@ -268,24 +269,22 @@ export default function Infraestrutura() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Quantidade</label>
-                            <input
+                            <Input
+                                label="Quantidade"
                                 type="number"
-                                min="1"
+                                min={1}
                                 max={selectedItemForLoan?.quantity || 1}
                                 value={loanQuantity}
                                 onChange={(e) => setLoanQuantity(Math.min(Math.max(1, parseInt(e.target.value) || 1), selectedItemForLoan?.quantity || 1))}
-                                className="w-full rounded-md border border-secondary-300 px-3 py-2 text-sm"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Devolver em (dias)</label>
-                            <input
+                            <Input
+                                label="Devolver em (dias)"
                                 type="number"
-                                min="1"
+                                min={1}
                                 value={loanDays}
                                 onChange={(e) => setLoanDays(Math.max(1, parseInt(e.target.value) || 1))}
-                                className="w-full rounded-md border border-secondary-300 px-3 py-2 text-sm"
                             />
                         </div>
                     </div>
