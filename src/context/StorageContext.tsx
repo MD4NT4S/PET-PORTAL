@@ -236,7 +236,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             linkedin: 'company/pet-hub'
         },
         footer: {
-            text: 'Desenvolvido com carinho pelo PET.',
+            text: 'Desenvolvido com carinho pelo PET - Versão 1.1',
             links: []
         },
         cycleFocus: 'Este mês estamos focados na organização da <strong>Semana Acadêmica</strong> e na finalização dos relatórios parciais.'
