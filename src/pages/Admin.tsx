@@ -9,6 +9,7 @@ import AdminLogin from '../components/admin/AdminLogin';
 import SiteEditor from '../components/admin/SiteEditor';
 import { Modal } from '../components/ui/Modal';
 import type { Member, Sector, InventoryItem, Evaluation } from '../context/StorageContext';
+import { supabase } from '../lib/supabase';
 
 export default function Admin() {
     const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, userRole, removeEvaluation } = useStorage();
@@ -617,31 +618,54 @@ export default function Admin() {
             ) : activeTab === 'avaliacoes' ? (
                 <div className="space-y-6">
                     {/* Breadcrumbs / Header */}
-                    <div className="flex items-center gap-2 text-sm text-secondary-500 mb-4">
-                        <button
-                            onClick={() => { setEvalViewMode('members'); setSelectedMemberEval(null); setSelectedEvaluation(null); }}
-                            className={`hover:text-primary-600 ${evalViewMode === 'members' ? 'font-bold text-primary-600' : ''}`}
-                        >
-                            Membros
-                        </button>
-                        {evalViewMode !== 'members' && (
-                            <>
-                                <span>/</span>
-                                <button
-                                    onClick={() => { setEvalViewMode('months'); setSelectedEvaluation(null); }}
-                                    className={`hover:text-primary-600 ${evalViewMode === 'months' ? 'font-bold text-primary-600' : ''}`}
-                                >
-                                    {selectedMemberEval?.name}
-                                </button>
-                            </>
-                        )}
-                        {evalViewMode === 'detail' && (
-                            <>
-                                <span>/</span>
-                                <span className="font-bold text-primary-600">
-                                    {selectedEvaluation?.criteria?.month || 'Detalhes'}
-                                </span>
-                            </>
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-2 text-sm text-secondary-500">
+                            <button
+                                onClick={() => { setEvalViewMode('members'); setSelectedMemberEval(null); setSelectedEvaluation(null); }}
+                                className={`hover:text-primary-600 ${evalViewMode === 'members' ? 'font-bold text-primary-600' : ''}`}
+                            >
+                                Membros
+                            </button>
+                            {evalViewMode !== 'members' && (
+                                <>
+                                    <span>/</span>
+                                    <button
+                                        onClick={() => { setEvalViewMode('months'); setSelectedEvaluation(null); }}
+                                        className={`hover:text-primary-600 ${evalViewMode === 'months' ? 'font-bold text-primary-600' : ''}`}
+                                    >
+                                        {selectedMemberEval?.name}
+                                    </button>
+                                </>
+                            )}
+                            {evalViewMode === 'detail' && (
+                                <>
+                                    <span>/</span>
+                                    <span className="font-bold text-primary-600">
+                                        {selectedEvaluation?.criteria?.month || 'Detalhes'}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+
+                        {(userRole === 'admin_master' || userRole === 'admin_gp') && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                onClick={async () => {
+                                    if (confirm('ATENÇÃO: Isso apagará TODAS as autoavaliações do sistema. Tem certeza absoluta?')) {
+                                        const { error } = await supabase.from('evaluations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                                        if (error) toast.error('Erro ao limpar dados.');
+                                        else {
+                                            toast.success('Todas as avaliações foram excluídas.');
+                                            window.location.reload();
+                                        }
+                                    }
+                                }}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Limpar Tudo
+                            </Button>
                         )}
                     </div>
 
