@@ -236,6 +236,12 @@ export default function SiteEditor() {
                                         onChange={e => handleChange('footer', 'copyright', e.target.value)}
                                         placeholder="© 2024 Todos os direitos reservados"
                                     />
+                                    <Input
+                                        label="Versão do Sistema"
+                                        value={configForm.footer.version || ''}
+                                        onChange={e => handleChange('footer', 'version', e.target.value)}
+                                        placeholder="v1.0.0"
+                                    />
                                 </div>
                             )}
 

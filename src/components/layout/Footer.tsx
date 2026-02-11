@@ -102,7 +102,7 @@ export function Footer() {
                         {footer.copyright || `© ${currentYear} Portal PET Hub. Todos os direitos reservados.`}
                     </p>
                     <div className="text-xs text-secondary-400">
-                        v1.0.0
+                        {footer.version || 'v1.0.0'}
                     </div>
                 </div>
             </div>

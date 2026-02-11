@@ -192,6 +192,7 @@ export interface SiteConfig {
     footer: {
         text: string;
         copyright?: string;
+        version?: string;
         links?: { label: string; url: string }[];
     };
     cycleFocus?: string;
@@ -237,6 +238,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         },
         footer: {
             text: 'Desenvolvido com carinho pelo PET - Versão 1.1',
+            version: 'v1.0.0',
             links: []
         },
         cycleFocus: 'Este mês estamos focados na organização da <strong>Semana Acadêmica</strong> e na finalização dos relatórios parciais.'
