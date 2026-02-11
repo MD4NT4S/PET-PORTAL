@@ -99,7 +99,11 @@ export interface Loan {
     quantity: number;
     expectedReturnDate?: string;
     date: string;
-    status: 'Ativo' | 'Devolvido' | 'Atrasado';
+    status: 'Ativo' | 'Devolvido' | 'Atrasado' | 'Aguardando Aprovação';
+    withdrawalPhotoUrl?: string; // Foto da retirada
+    returnPhotoUrl?: string; // Foto da devolução
+    returnCondition?: 'ok' | 'damaged' | 'dirty' | null;
+    adminNotes?: string | null;
 }
 
 export interface Photo {
@@ -138,8 +142,9 @@ interface StorageContextType {
     updateSector: (id: string, data: Partial<Sector>) => void;
     updateSectorItems: (id: string, items: InventoryItem[]) => void;
     reorderSectors: (sectors: Sector[]) => Promise<void>;
-    addLoan: (itemId: string, type: 'Empréstimo' | 'Uso Contínuo', quantity: number, returnDate?: string) => void;
-    returnLoan: (loanId: string) => void;
+    addLoan: (itemId: string, type: 'Empréstimo' | 'Uso Contínuo', quantity: number, returnDate?: string, photoUrl?: string) => Promise<boolean>;
+    returnLoan: (loanId: string, returnPhotoUrl: string) => Promise<boolean>;
+    approveLoanReturn: (loanId: string, condition: 'ok' | 'damaged' | 'dirty', notes?: string) => Promise<boolean>;
 
     // Photos
     photos: Photo[];
@@ -733,15 +738,18 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const addLoan = async (itemId: string, type: 'Empréstimo' | 'Uso Contínuo', quantity: number, returnDate?: string) => {
-        if (!currentUser) return;
+    const addLoan = async (itemId: string, type: 'Empréstimo' | 'Uso Contínuo', quantity: number, returnDate?: string, photoUrl?: string): Promise<boolean> => {
+        if (!currentUser) {
+            toast.error('Você precisa estar logado.');
+            return false;
+        }
 
         // 1. Fetch Item to check qty
         const { data: item } = await supabase.from('inventory_items').select('*').eq('id', itemId).single();
 
         if (!item || item.quantity < quantity) {
             toast.error('Quantidade indisponível');
-            return;
+            return false;
         }
 
         const newQuantity = item.quantity - quantity;
@@ -758,7 +766,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
         if (updateError) {
             toast.error('Erro ao atualizar estoque');
-            return;
+            return false;
         }
 
         // 3. Create Loan
@@ -770,13 +778,15 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             type,
             quantity,
             expected_return_date: returnDate,
-            status: 'Ativo'
+            status: 'Ativo',
+            withdrawal_photo_url: photoUrl
         };
 
         const { data: loan, error: loanError } = await supabase.from('loans').insert(newLoan).select().single();
 
         if (loanError) {
             toast.error('Erro ao registrar empréstimo');
+            return false;
         } else {
             setLoans(prev => [{
                 ...loan,
@@ -784,7 +794,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 userId: loan.user_id,
                 userName: loan.user_name,
                 itemName: loan.item_name,
-                expectedReturnDate: loan.expected_return_date
+                expectedReturnDate: loan.expected_return_date,
+                withdrawalPhotoUrl: loan.withdrawal_photo_url
             } as Loan, ...prev]);
 
             // Update local sector state
@@ -798,31 +809,64 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 return s;
             }));
             toast.success('Empréstimo realizado!');
+            return true;
         }
     };
 
-    const returnLoan = async (loanId: string) => {
+    const returnLoan = async (loanId: string, returnPhotoUrl: string): Promise<boolean> => {
         const loan = loans.find(l => l.id === loanId);
-        if (!loan || loan.status === 'Devolvido' || loan.status === undefined) return;
+        if (!loan || loan.status === 'Devolvido') return false;
 
-        // 1. Update Loan
-        const { error: loanError } = await supabase.from('loans').update({ status: 'Devolvido' }).eq('id', loanId);
+        // 1. Update Loan to Pending Approval
+        const { error: loanError } = await supabase.from('loans').update({
+            status: 'Aguardando Aprovação',
+            return_photo_url: returnPhotoUrl,
+            return_condition: null // Will be set by admin
+        }).eq('id', loanId);
+
         if (loanError) {
-            toast.error('Erro ao devolver');
-            return;
+            toast.error('Erro ao solicitar devolução');
+            return false;
         }
 
-        setLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: 'Devolvido' } : l));
+        setLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: 'Aguardando Aprovação', returnPhotoUrl } : l));
+        toast.success('Devolução solicitada! Aguarde a aprovação do admin.');
+        return true;
+    };
+
+    const approveLoanReturn = async (loanId: string, condition: 'ok' | 'damaged' | 'dirty', notes?: string): Promise<boolean> => {
+        const loan = loans.find(l => l.id === loanId);
+        if (!loan || loan.status !== 'Aguardando Aprovação') return false;
+
+        // 1. Finalize Loan
+        const { error: loanError } = await supabase.from('loans').update({
+            status: 'Devolvido',
+            return_condition: condition,
+            admin_notes: notes
+        }).eq('id', loanId);
+
+        if (loanError) {
+            toast.error('Erro ao aprovar devolução');
+            return false;
+        }
+
+        setLoans(prev => prev.map(l => l.id === loanId ? {
+            ...l,
+            status: 'Devolvido',
+            returnCondition: condition,
+            adminNotes: notes
+        } : l));
 
         // 2. Return Item to Stock (if Empréstimo)
         if (loan.type === 'Empréstimo') {
             const { data: item } = await supabase.from('inventory_items').select('*').eq('id', loan.itemId).single();
             if (item) {
                 const newQty = item.quantity + (loan.quantity || 1);
-                await supabase.from('inventory_items').update({
+                const updatedItem = {
                     quantity: newQty,
                     status: 'Disponível'
-                }).eq('id', loan.itemId);
+                };
+                await supabase.from('inventory_items').update(updatedItem).eq('id', loan.itemId);
 
                 setSectors(prev => prev.map(s => {
                     const itemIdx = s.items.findIndex(i => i.id === loan.itemId);
@@ -835,7 +879,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 }));
             }
         }
-        toast.success('Item devolvido');
+        toast.success('Devolução aprovada!');
+        return true;
     };
 
     // --- Photo Actions ---
@@ -1043,6 +1088,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 loans,
                 addLoan,
                 returnLoan,
+                approveLoanReturn,
                 documents,
                 addDocument,
                 removeDocument,

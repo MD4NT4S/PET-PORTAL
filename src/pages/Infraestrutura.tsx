@@ -5,6 +5,8 @@ import { Package, Info, ArrowUpRight, CheckCircle2, GripVertical } from 'lucide-
 import { Button } from '../components/ui/Button';
 import { toast } from 'sonner';
 import type { Sector, InventoryItem } from '../context/StorageContext';
+import { supabase } from '../lib/supabase';
+import { Camera, Loader2 } from 'lucide-react';
 
 export default function Infraestrutura() {
     const { sectors, addLoan, currentUser, userRole, reorderSectors } = useStorage();
@@ -14,6 +16,8 @@ export default function Infraestrutura() {
 
     const [loanQuantity, setLoanQuantity] = useState(1);
     const [loanDays, setLoanDays] = useState(7);
+    const [loanPhoto, setLoanPhoto] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const isAdmin = userRole === 'admin_master' || userRole === 'admin_infra';
 
@@ -44,8 +48,36 @@ export default function Infraestrutura() {
         setDraggedIndex(null);
     };
 
-    const handleLoanRequest = (type: 'Empréstimo' | 'Uso Contínuo') => {
+    const handleLoanRequest = async (type: 'Empréstimo' | 'Uso Contínuo') => {
         if (selectedItemForLoan) {
+            if (!loanPhoto) {
+                toast.error('É obrigatório enviar uma foto do item.');
+                return;
+            }
+
+            setIsUploading(true);
+            let photoUrl = '';
+
+            try {
+                const fileExt = loanPhoto.name.split('.').pop();
+                const fileName = `loan-withdrawal-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('photos')
+                    .upload(fileName, loanPhoto);
+
+                if (uploadError) throw uploadError;
+
+                const { data } = supabase.storage.from('photos').getPublicUrl(fileName);
+                photoUrl = data.publicUrl;
+
+            } catch (error) {
+                console.error('Upload Error:', error);
+                toast.error('Erro ao enviar foto.');
+                setIsUploading(false);
+                return;
+            }
+
             let returnDate = undefined;
             if (type === 'Empréstimo') {
                 const date = new Date();
@@ -53,12 +85,15 @@ export default function Infraestrutura() {
                 returnDate = date.toISOString();
             }
 
-            const success = addLoan(selectedItemForLoan.id, type, loanQuantity, returnDate);
+            const success = await addLoan(selectedItemForLoan.id, type, loanQuantity, returnDate, photoUrl);
 
-            toast.success(`Solicitação de ${type} realizada com sucesso!`);
-            setSelectedItemForLoan(null);
-            setLoanQuantity(1);
-            setLoanDays(7);
+            if (success) {
+                setSelectedItemForLoan(null);
+                setLoanQuantity(1);
+                setLoanDays(7);
+                setLoanPhoto(null);
+            }
+            setIsUploading(false);
         }
     };
 
@@ -265,10 +300,46 @@ export default function Infraestrutura() {
                         </p>
                     )}
 
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Foto do Item (Obrigatório)</label>
+                        <div className="flex items-center gap-4">
+                            <div className="relative w-full">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => setLoanPhoto(e.target.files?.[0] || null)}
+                                    className="hidden"
+                                    id="loan-photo-upload"
+                                />
+                                <label
+                                    htmlFor="loan-photo-upload"
+                                    className="flex items-center justify-center w-full p-4 border-2 border-dashed border-secondary-300 rounded-lg cursor-pointer hover:bg-secondary-50 transition-colors"
+                                >
+                                    {loanPhoto ? (
+                                        <span className="text-sm text-green-600 font-medium flex items-center">
+                                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                                            {loanPhoto.name}
+                                        </span>
+                                    ) : (
+                                        <span className="text-sm text-secondary-500 flex items-center">
+                                            <Camera className="w-4 h-4 mr-2" />
+                                            Clique para tirar ou escolher foto
+                                        </span>
+                                    )}
+                                </label>
+                            </div>
+                        </div>
+                        <p className="text-xs text-secondary-500">
+                            Registre o estado atual do item antes de retirar.
+                        </p>
+                    </div>
+
                     <div className="grid grid-cols-1 gap-3">
                         <button
                             onClick={() => handleLoanRequest('Empréstimo')}
-                            className="flex items-center justify-between p-4 border border-secondary-200 dark:border-secondary-800 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-200 transition-all text-left group"
+                            disabled={isUploading}
+                            className={`flex items-center justify-between p-4 border border-secondary-200 dark:border-secondary-800 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-200 transition-all text-left group
+                                ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             <div>
                                 <span className="block font-semibold text-primary-700 dark:text-primary-400 group-hover:text-primary-800">Confirmar Empréstimo</span>
@@ -279,7 +350,9 @@ export default function Infraestrutura() {
 
                         <button
                             onClick={() => handleLoanRequest('Uso Contínuo')}
-                            className="flex items-center justify-between p-4 border border-secondary-200 dark:border-secondary-800 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-900 hover:border-secondary-300 transition-all text-left group"
+                            disabled={isUploading}
+                            className={`flex items-center justify-between p-4 border border-secondary-200 dark:border-secondary-800 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-900 hover:border-secondary-300 transition-all text-left group
+                                ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             <div>
                                 <span className="block font-semibold text-secondary-800 dark:text-secondary-200">Confirmar Uso Contínuo</span>
