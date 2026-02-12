@@ -84,7 +84,7 @@ export default function MyRequests() {
             </div>
 
             <div className="grid gap-6">
-                {activeTab === 'tickets' ? (
+                {activeTab === 'tickets' && (
                     myTickets.length > 0 ? (
                         myTickets.map(ticket => (
                             <Card key={ticket.id}>
@@ -135,7 +135,8 @@ export default function MyRequests() {
                             </CardContent>
                         </Card>
                     )
-                ) : (
+                )}
+                {activeTab === 'evaluations' && (
                     myEvaluations.length > 0 ? (
                         myEvaluations.map(evaluation => (
                             <Card key={evaluation.id}>
