@@ -76,7 +76,6 @@ export function MainLayout() {
         { to: '/calendario', icon: Calendar, label: 'Calendário' },
         { to: '/conhecimento', icon: FileText, label: 'Base de Conhecimento' },
         { to: '/feedback', icon: Heart, label: 'Feedback 360' },
-        { to: '/feedback', icon: Heart, label: 'Feedback 360' },
         ...(isAdmin ? [{ to: '/infraestrutura', icon: Box, label: 'Infraestrutura' }] : []),
         { to: '/my-requests', icon: Package, label: 'Minhas Solicitações' },
         ...(isAdmin ? [{ to: '/admin', icon: Settings, label: 'Admin' }] : []),
