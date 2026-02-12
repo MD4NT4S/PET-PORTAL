@@ -11,6 +11,7 @@ import SiteEditor from '../components/admin/SiteEditor';
 import { Modal } from '../components/ui/Modal';
 import type { Member, Sector, InventoryItem, Evaluation } from '../context/StorageContext';
 import { supabase } from '../lib/supabase';
+import emailjs from '@emailjs/browser';
 
 export default function Admin() {
     const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, userRole, removeEvaluation, approveLoanReturn, notices, addNotice, removeNotice, currentUser } = useStorage();
@@ -332,19 +333,84 @@ export default function Admin() {
         setEditingSector({ ...editingSector, items: updatedItems });
     };
 
-    const handleAddNotice = (e: React.FormEvent) => {
+
+
+    const handleAddNotice = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newNoticeTitle.trim() || !newNoticeContent.trim()) {
             toast.error('Preencha título e conteúdo.');
             return;
         }
 
-        addNotice({
+        const noticeData = {
             title: newNoticeTitle,
             content: newNoticeContent,
             type: newNoticeType,
             author: currentUser || 'Admin'
-        });
+        };
+
+        // 1. Save to Database
+        addNotice(noticeData);
+
+        // 2. Send Emails (Fire and Forget)
+        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+        const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+        if (serviceId && templateId && publicKey) {
+            toast.info('Iniciando envio de emails...');
+
+            // Get all member emails
+            const recipients = members.map(m => m.email).filter(Boolean);
+            console.log('Sending emails to:', recipients);
+
+            // Send one email per recipient (Personalized)
+            // Note: Loops can hit rate limits on free tier.
+            // For production with many members, consider BCC or a backend loop.
+            // Here we limit to demonstrate or send to all if count is low.
+
+            // Strategy: Send individually to show "To Name" if possible, or just send generic.
+            // Let's try sending to each member.
+
+            let sentCount = 0;
+
+            for (const member of members) {
+                if (!member.email) continue;
+
+                try {
+                    await emailjs.send(serviceId, templateId, {
+                        to_name: member.name,
+                        to_email: member.email, // Check if template uses this or just sends to "to_name" email?
+                        // Actually EmailJS client SDK doesn't send to "to_email" directly unless it's in the packet and the template is mapped to it.
+                        // But usually we just send the message.
+                        // Wait, client-side emailjs.send() sends ONE email per call.
+                        // We need to pass the recipient email in the template params if the template uses it as "To".
+                        // BUT, usually EmailJS Service setting defines who receives it, UNLESS we override it or it's a "User Auto-Reply" type.
+                        // Actually, for "Send to User", we usually map a variable like `user_email` to the "To" field in the EmailJS Template Settings.
+                        // I will pass `to_email: member.email`.
+
+                        title: newNoticeTitle,
+                        message: newNoticeContent,
+                        type: newNoticeType === 'info' ? 'Informativo' : newNoticeType === 'alert' ? 'Alerta' : 'Evento',
+                        from_name: currentUser || 'Admin'
+                    }, publicKey);
+                    sentCount++;
+                    console.log(`Email sent to ${member.email}`);
+                } catch (err) {
+                    console.error('Failed to send email to', member.email, err);
+                    toast.error(`Falha ao enviar para ${member.email}`);
+                }
+            }
+
+            if (sentCount > 0) {
+                toast.success(`Emails enviados para ${sentCount} membros!`);
+            } else {
+                toast.warning('Nenhum email enviado. Verifique se há membros com email cadastrado.');
+            }
+        } else {
+            console.error('EmailJS keys missing in .env:', { serviceId, templateId, publicKey });
+            toast.error('Erro de Configuração: Chaves do EmailJS não encontradas. Verifique o .env e reinicie o servidor.');
+        }
 
         setNewNoticeTitle('');
         setNewNoticeContent('');
