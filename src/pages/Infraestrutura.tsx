@@ -22,6 +22,25 @@ export default function Infraestrutura() {
 
     const isAdmin = userRole === 'admin_master' || userRole === 'admin_infra';
 
+    // Redirect if not admin
+    if (!isAdmin) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">
+                <div className="bg-yellow-100 p-4 rounded-full">
+                    <Loader2 className="h-8 w-8 text-yellow-600 animate-spin" />
+                </div>
+                <h2 className="text-xl font-semibold text-secondary-800 dark:text-secondary-100">Em Manutenção</h2>
+                <p className="text-secondary-600 dark:text-secondary-400 max-w-md">
+                    A área de Infraestrutura está passando por ajustes no inventário.
+                    Por favor, tente novamente mais tarde.
+                </p>
+                <Button variant="outline" onClick={() => window.location.href = '/'}>
+                    Voltar para Home
+                </Button>
+            </div>
+        );
+    }
+
     const handleDragStart = (index: number) => {
         if (!isAdmin) return;
         setDraggedIndex(index);
