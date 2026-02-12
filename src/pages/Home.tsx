@@ -7,7 +7,24 @@ import { Link } from 'react-router-dom';
 import PhotoWall from '../components/PhotoWall';
 
 export default function Home() {
-    const { tickets, evaluations, siteConfig, loadingConfig } = useStorage();
+    const { tickets, evaluations, siteConfig, loadingConfig, currentUser } = useStorage();
+
+    // Filter data for the current user
+    const myTickets = tickets.filter(t => t.author === currentUser && t.status !== 'Concluído');
+    const myEvaluations = evaluations.filter(e => e.author === currentUser);
+
+    // Check if evaluation for current month is done
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); // 0-11
+    const currentYear = currentDate.getFullYear();
+    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const currentMonthName = months[currentMonth];
+
+    const hasEvaluationForMonth = myEvaluations.some(ev => ev.criteria?.month === currentMonthName && new Date(ev.createdAt).getFullYear() === currentYear);
+
+    // Calculate Cycle Progress
+    // Logic: 100% if evaluation sent, 0% if not (Simple logic as requested)
+    const cycleProgress = hasEvaluationForMonth ? 100 : 0;
 
     if (loadingConfig) {
         return (
@@ -73,22 +90,27 @@ export default function Home() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Status do Ciclo</CardTitle>
+                        <CardTitle>Status do Ciclo ({currentMonthName})</CardTitle>
                         <CardDescription>Resumo das suas atividades.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-secondary-600 dark:text-secondary-400">Tickets Abertos</span>
-                            <span className="font-bold">{tickets.filter(t => t.status !== 'Concluído').length}</span>
+                            <span className="font-bold">{myTickets.length}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-secondary-600 dark:text-secondary-400">Avaliações Enviadas</span>
-                            <span className="font-bold">{evaluations.length}</span>
+                            <span className="font-bold">{myEvaluations.length}</span>
                         </div>
                         <div className="w-full bg-secondary-200 rounded-full h-2.5 dark:bg-secondary-700 mt-4">
-                            <div className="bg-primary-600 h-2.5 rounded-full" style={{ width: '45%' }}></div>
+                            <div
+                                className={`h-2.5 rounded-full transition-all duration-1000 ${cycleProgress === 100 ? 'bg-green-500' : 'bg-primary-600'}`}
+                                style={{ width: `${cycleProgress}%` }}
+                            ></div>
                         </div>
-                        <p className="text-xs text-secondary-500 text-right">45% do ciclo concluído</p>
+                        <p className="text-xs text-secondary-500 text-right">
+                            {hasEvaluationForMonth ? 'Autoavaliação enviada!' : 'Autoavaliação pendente'}
+                        </p>
                     </CardContent>
                 </Card>
             </div>
