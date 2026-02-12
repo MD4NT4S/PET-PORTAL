@@ -115,6 +115,15 @@ export interface Photo {
     rotation: number; // Random rotation between -5 and 5 degrees
 }
 
+export interface Notice {
+    id: string;
+    title: string;
+    content: string;
+    type: 'info' | 'alert' | 'event';
+    createdAt: string;
+    author: string;
+}
+
 interface StorageContextType {
     // ... existing types
     tickets: Ticket[];
@@ -150,6 +159,11 @@ interface StorageContextType {
     photos: Photo[];
     addPhoto: (url: string, description: string, file?: File) => Promise<void>;
     removePhoto: (id: string) => void;
+
+    // Notices
+    notices: Notice[];
+    addNotice: (notice: Omit<Notice, 'id' | 'createdAt'>) => Promise<void>;
+    removeNotice: (id: string) => Promise<void>;
 
     // Config & Events
     siteConfig: SiteConfig;
@@ -226,6 +240,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     const [loans, setLoans] = useState<Loan[]>([]);
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [documents, setDocuments] = useState<DocumentDTO[]>([]);
+    const [notices, setNotices] = useState<Notice[]>([]);
 
     // CMS State
     const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -279,7 +294,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 loansRes,
                 siteConfigRes,
                 documentsRes,
-                photosRes
+                photosRes,
+                noticesRes
             ] = await Promise.all([
                 supabase.from('tickets').select('*').order('created_at', { ascending: false }),
                 supabase.from('feedbacks').select('*').order('created_at', { ascending: false }),
@@ -291,7 +307,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 supabase.from('loans').select('*').order('date', { ascending: false }),
                 supabase.from('site_config').select('*').limit(1).single(),
                 supabase.from('documents').select('*').order('created_at', { ascending: false }),
-                supabase.from('photos').select('*').order('created_at', { ascending: false }).limit(30) // Limit to 30 recent photos
+                supabase.from('photos').select('*').order('created_at', { ascending: false }).limit(30), // Limit to 30 recent photos
+                supabase.from('notices').select('*').order('created_at', { ascending: false })
             ]);
 
             // Process Tickets
@@ -400,6 +417,18 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                     author: p.author,
                     createdAt: p.created_at,
                     rotation: p.rotation
+                })));
+            }
+
+            // Process Notices
+            if (noticesRes.data) {
+                setNotices(noticesRes.data.map(n => ({
+                    id: n.id,
+                    title: n.title,
+                    content: n.content,
+                    type: n.type,
+                    createdAt: n.created_at,
+                    author: n.author
                 })));
             }
 
@@ -956,6 +985,50 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // --- Notice Actions ---
+    const addNotice = async (notice: Omit<Notice, 'id' | 'createdAt'>) => {
+        const newNotice = {
+            title: notice.title,
+            content: notice.content,
+            type: notice.type,
+            author: notice.author
+        };
+
+        const { data: inserted, error } = await supabase.from('notices').insert(newNotice).select().single();
+
+        if (error) {
+            console.error('Error adding notice:', error);
+            toast.error('Erro ao postar aviso');
+            return;
+        }
+
+        if (inserted) {
+            const createdNotice: Notice = {
+                id: inserted.id,
+                title: inserted.title,
+                content: inserted.content,
+                type: inserted.type,
+                createdAt: inserted.created_at,
+                author: inserted.author
+            };
+            setNotices(prev => [createdNotice, ...prev]);
+            toast.success('Aviso postado!');
+
+            // TODO: EmailJS Integration here
+            // sendEmailNotification(createdNotice); 
+        }
+    };
+
+    const removeNotice = async (id: string) => {
+        const { error } = await supabase.from('notices').delete().eq('id', id);
+        if (error) {
+            toast.error('Erro ao remover aviso');
+            return;
+        }
+        setNotices(prev => prev.filter(n => n.id !== id));
+        toast.success('Aviso removido');
+    };
+
     // --- Knowledge Base Actions ---
     const addDocument = async (doc: Omit<DocumentDTO, 'id' | 'createdAt'>, file?: File) => {
         let finalUrl = doc.url;
@@ -1095,7 +1168,10 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 canManageCalendar,
                 photos,
                 addPhoto,
-                removePhoto
+                removePhoto,
+                notices,
+                addNotice,
+                removeNotice
             }}
         >
             {children}

@@ -3,7 +3,8 @@ import { useStorage } from '../context/StorageContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Table as TableIcon, LayoutTemplate, LogOut, Users, Trash2, Plus, Pencil, Check, X, Box, Package, ShieldAlert } from 'lucide-react';
+import { Download, Table as TableIcon, LayoutTemplate, LogOut, Users, Trash2, Plus, Pencil, Check, X, Box, Package, ShieldAlert, Megaphone } from 'lucide-react';
+
 import { toast } from 'sonner';
 import AdminLogin from '../components/admin/AdminLogin';
 import SiteEditor from '../components/admin/SiteEditor';
@@ -12,7 +13,8 @@ import type { Member, Sector, InventoryItem, Evaluation } from '../context/Stora
 import { supabase } from '../lib/supabase';
 
 export default function Admin() {
-    const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, userRole, removeEvaluation, approveLoanReturn } = useStorage();
+    const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, userRole, removeEvaluation, approveLoanReturn, notices, addNotice, removeNotice, currentUser } = useStorage();
+
 
     // Define tabs and permissions
     const allTabs = [
@@ -21,7 +23,8 @@ export default function Admin() {
         { id: 'tickets', label: 'Tickets', roles: ['admin_master', 'admin_gp', 'admin_infra'] },
         { id: 'membros', label: 'Membros', icon: Users, roles: ['admin_master', 'admin_gp'] },
         { id: 'infraestrutura', label: 'Infraestrutura', icon: Box, roles: ['admin_master', 'admin_infra'] },
-        { id: 'cms', label: 'Gerenciar Site', icon: LayoutTemplate, roles: ['admin_master', 'admin_gp'] }
+        { id: 'cms', label: 'Gerenciar Site', icon: LayoutTemplate, roles: ['admin_master', 'admin_gp'] },
+        { id: 'avisos', label: 'Avisos', icon: Megaphone, roles: ['admin_master', 'admin_gp', 'admin_secretaria', 'admin_divulgacao'] }
     ];
 
     const availableTabs = allTabs.filter(tab => tab.roles.includes(userRole || ''));
@@ -63,6 +66,11 @@ export default function Admin() {
     const [newItemCode, setNewItemCode] = useState('');
     const [newItemQuantity, setNewItemQuantity] = useState<number>(1);
     const [newItemStatus, setNewItemStatus] = useState<'Disponível' | 'Em Uso' | 'Emprestado' | 'Indisponível'>('Disponível');
+
+    // Notice State
+    const [newNoticeTitle, setNewNoticeTitle] = useState('');
+    const [newNoticeContent, setNewNoticeContent] = useState('');
+    const [newNoticeType, setNewNoticeType] = useState<'info' | 'alert' | 'event'>('info');
 
     // Evaluation Viewer State
     const [evalViewMode, setEvalViewMode] = useState<'members' | 'months' | 'detail'>('members');
@@ -321,6 +329,32 @@ export default function Admin() {
 
         // Update local state
         setEditingSector({ ...editingSector, items: updatedItems });
+        setEditingSector({ ...editingSector, items: updatedItems });
+    };
+
+    const handleAddNotice = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newNoticeTitle.trim() || !newNoticeContent.trim()) {
+            toast.error('Preencha título e conteúdo.');
+            return;
+        }
+
+        addNotice({
+            title: newNoticeTitle,
+            content: newNoticeContent,
+            type: newNoticeType,
+            author: currentUser || 'Admin'
+        });
+
+        setNewNoticeTitle('');
+        setNewNoticeContent('');
+        setNewNoticeType('info');
+    };
+
+    const handleRemoveNotice = (id: string) => {
+        if (confirm('Tem certeza que deseja remover este aviso?')) {
+            removeNotice(id);
+        }
     };
 
     return (
@@ -697,6 +731,112 @@ export default function Admin() {
                 </div>
             ) : activeTab === 'cms' ? (
                 <SiteEditor />
+            ) : activeTab === 'avisos' ? (
+                <div className="grid md:grid-cols-2 gap-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Novo Aviso</CardTitle>
+                            <CardDescription>Poste um aviso no mural da Home. Se configurado, enviará email.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleAddNotice} className="space-y-4">
+                                <Input
+                                    placeholder="Título do Aviso"
+                                    value={newNoticeTitle}
+                                    onChange={e => setNewNoticeTitle(e.target.value)}
+                                />
+                                <div>
+                                    <label className="text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1 block">
+                                        Tipo
+                                    </label>
+                                    <div className="flex gap-4">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="noticeType"
+                                                value="info"
+                                                checked={newNoticeType === 'info'}
+                                                onChange={() => setNewNoticeType('info')}
+                                                className="text-primary-600"
+                                            />
+                                            Informativo
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="noticeType"
+                                                value="alert"
+                                                checked={newNoticeType === 'alert'}
+                                                onChange={() => setNewNoticeType('alert')}
+                                                className="text-red-600"
+                                            />
+                                            Alerta
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="noticeType"
+                                                value="event"
+                                                checked={newNoticeType === 'event'}
+                                                onChange={() => setNewNoticeType('event')}
+                                                className="text-blue-600"
+                                            />
+                                            Evento
+                                        </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <textarea
+                                        className="w-full min-h-[120px] rounded-md border border-secondary-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-secondary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-secondary-800 dark:bg-secondary-950 dark:ring-offset-secondary-950 dark:placeholder:text-secondary-400"
+                                        placeholder="Conteúdo do aviso..."
+                                        value={newNoticeContent}
+                                        onChange={e => setNewNoticeContent(e.target.value)}
+                                    />
+                                </div>
+                                <Button type="submit" className="w-full">
+                                    <Megaphone className="mr-2 h-4 w-4" /> Postar Aviso
+                                </Button>
+                            </form>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Avisos Ativos</CardTitle>
+                            <CardDescription>Gerencie os avisos visíveis no mural.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                                {notices.length === 0 ? (
+                                    <p className="text-secondary-500 text-center py-4">Nenhum aviso ativo.</p>
+                                ) : (
+                                    notices.map(notice => (
+                                        <div key={notice.id} className="p-4 rounded-lg bg-secondary-50 dark:bg-secondary-900 border border-secondary-200 dark:border-secondary-800 relative group">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="absolute top-2 right-2 text-secondary-400 hover:text-red-500 hover:bg-red-50"
+                                                onClick={() => handleRemoveNotice(notice.id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                {notice.type === 'alert' && <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full font-bold">Alerta</span>}
+                                                {notice.type === 'event' && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-bold">Evento</span>}
+                                                <h4 className="font-semibold">{notice.title}</h4>
+                                            </div>
+                                            <p className="text-sm text-secondary-600 dark:text-secondary-300 line-clamp-2">{notice.content}</p>
+                                            <div className="mt-2 flex justify-between text-xs text-secondary-400">
+                                                <span>{new Date(notice.createdAt).toLocaleDateString()}</span>
+                                                <span>Por: {notice.author}</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             ) : activeTab === 'avaliacoes' ? (
                 <div className="space-y-6">
                     {/* Breadcrumbs / Header */}

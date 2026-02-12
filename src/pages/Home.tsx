@@ -70,6 +70,9 @@ export default function Home() {
             {/* Photo Wall Section */}
             <PhotoWall />
 
+            {/* Notice Board */}
+            <NoticeBoard />
+
             {/* Quick Actions / Recent */}
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
@@ -115,5 +118,55 @@ export default function Home() {
                 </Card>
             </div>
         </div>
+    );
+}
+
+function NoticeBoard() {
+    const { notices } = useStorage();
+    const [isExpanded, setIsExpanded] = React.useState(false);
+
+    if (notices.length === 0) return null;
+
+    const displayedNotices = isExpanded ? notices : notices.slice(0, 3);
+
+    return (
+        <Card className="border-l-4 border-l-primary-500">
+            <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                    <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5 text-primary-600" />
+                        Mural de Avisos
+                    </CardTitle>
+                    {notices.length > 3 && (
+                        <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
+                            {isExpanded ? 'Ver menos' : 'Ver todos'}
+                        </Button>
+                    )}
+                </div>
+                <CardDescription>Fique por dentro das novidades do grupo.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {displayedNotices.map((notice) => (
+                    <div key={notice.id} className="p-4 rounded-lg bg-secondary-50 dark:bg-secondary-900 border border-secondary-100 dark:border-secondary-800">
+                        <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-semibold text-secondary-900 dark:text-secondary-100 flex items-center gap-2">
+                                {notice.type === 'alert' && <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 rounded">Importante</span>}
+                                {notice.type === 'event' && <span className="text-blue-500 text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 rounded">Evento</span>}
+                                {notice.title}
+                            </h4>
+                            <span className="text-xs text-secondary-500 whitespace-nowrap ml-2">
+                                {new Date(notice.createdAt).toLocaleDateString()}
+                            </span>
+                        </div>
+                        <p className="text-sm text-secondary-600 dark:text-secondary-300 whitespace-pre-wrap">
+                            {notice.content}
+                        </p>
+                        <p className="text-xs text-secondary-400 mt-2">
+                            Postado por: {notice.author}
+                        </p>
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
     );
 }
