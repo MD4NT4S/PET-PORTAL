@@ -372,41 +372,42 @@ export default function Admin() {
             // Strategy: Send individually to show "To Name" if possible, or just send generic.
             // Let's try sending to each member.
 
-            let sentCount = 0;
 
-            for (const member of members) {
-                if (!member.email) continue;
+            // [FIX] Enviar um ÚNICO e-mail para o Admin com os outros em Cópia Oculta (BCC).
+            // Isso evita confirmações duplicadas para o administrador.
 
-                try {
-                    await emailjs.send(serviceId, templateId, {
-                        to_name: member.name,
-                        to_email: member.email, // Check if template uses this or just sends to "to_name" email?
-                        // Actually EmailJS client SDK doesn't send to "to_email" directly unless it's in the packet and the template is mapped to it.
-                        // But usually we just send the message.
-                        // Wait, client-side emailjs.send() sends ONE email per call.
-                        // We need to pass the recipient email in the template params if the template uses it as "To".
-                        // BUT, usually EmailJS Service setting defines who receives it, UNLESS we override it or it's a "User Auto-Reply" type.
-                        // Actually, for "Send to User", we usually map a variable like `user_email` to the "To" field in the EmailJS Template Settings.
-                        // I will pass `to_email: member.email`.
+            try {
+                // Filtra duplicatas
+                const uniqueRecipients = [...new Set(recipients)];
+                // currentUser é apenas o NOME (string), então precisamos achar o email dele na lista de membros ou usar um fallback
+                const currentMember = members.find(m => m.name === currentUser);
+                const adminEmail = currentMember?.email || uniqueRecipients[0];
 
-                        title: newNoticeTitle,
-                        message: newNoticeContent,
-                        type: newNoticeType === 'info' ? 'Informativo' : newNoticeType === 'alert' ? 'Alerta' : 'Evento',
-                        from_name: currentUser || 'Admin'
-                    }, publicKey);
-                    sentCount++;
-                    console.log(`Email sent to ${member.email}`);
-                } catch (err) {
-                    console.error('Failed to send email to', member.email, err);
-                    toast.error(`Falha ao enviar para ${member.email}`);
-                }
+                // Cria lista BCC (todos exceto admin), unida por vírgula
+                const bccList = uniqueRecipients.filter(e => e !== adminEmail).join(',');
+
+                // Envia UM ÚNICO E-MAIL
+                await emailjs.send(serviceId, templateId, {
+                    to_name: "Equipe PET",
+                    to_email: adminEmail || uniqueRecipients[0], // Destinatário Principal
+                    bcc: bccList, // Destinatários Ocultos
+
+                    title: newNoticeTitle,
+                    message: newNoticeContent,
+                    type: newNoticeType === 'info' ? 'Informativo' : newNoticeType === 'alert' ? 'Alerta' : 'Evento',
+                    from_name: currentUser || 'Admin'
+                }, publicKey);
+
+                // Log e Feedback
+                console.log(`Email único enviado para ${adminEmail} com BCC para ${uniqueRecipients.length - 1} membros.`);
+                toast.success(`Aviso enviado com sucesso!`);
+
+            } catch (err) {
+                console.error('Falha ao enviar e-mail:', err);
+                toast.error('Erro ao enviar aviso.');
             }
 
-            if (sentCount > 0) {
-                toast.success(`Emails enviados para ${sentCount} membros!`);
-            } else {
-                toast.warning('Nenhum email enviado. Verifique se há membros com email cadastrado.');
-            }
+
         } else {
             console.error('EmailJS keys missing in .env:', { serviceId, templateId, publicKey });
             toast.error('Erro de Configuração: Chaves do EmailJS não encontradas. Verifique o .env e reinicie o servidor.');
