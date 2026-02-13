@@ -225,10 +225,10 @@ export default function SiteEditor() {
                             {activeSection === 'footer' && (
                                 <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
                                     <Input
-                                        label="Texto do Rodapé"
-                                        value={configForm.footer.text}
-                                        onChange={e => handleChange('footer', 'text', e.target.value)}
-                                        placeholder="Mensagem exibida no rodapé"
+                                        label="Texto do Rodapé (Fixo)"
+                                        value="Desenvolvido com carinho pelo Ex Petiano DANTAS."
+                                        disabled
+                                        placeholder="Mensagem fixa"
                                     />
                                     <Input
                                         label="Copyright (Opcional)"

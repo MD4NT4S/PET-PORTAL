@@ -17,11 +17,11 @@ export function Footer() {
                     {/* Brand & Description */}
                     <div className="space-y-4">
                         <div className="flex items-center space-x-2">
-                            <GraduationCap className="h-6 w-6 text-primary-600" />
-                            <span className="text-lg font-bold text-secondary-900 dark:text-white">Portal PET Hub</span>
+                            <img src="/logo.png" alt="Portal PET Logo" className="h-8 w-8" />
+                            <span className="text-lg font-bold text-secondary-900 dark:text-white">Portal PET - CAP</span>
                         </div>
                         <p className="text-sm text-secondary-600 dark:text-secondary-400 leading-relaxed max-w-xs">
-                            {footer.text || 'Gestão acadêmica simplificada para grupos PET.'}
+                            "Desenvolvido com carinho pelo Ex Petiano DANTAS."
                         </p>
                     </div>
 

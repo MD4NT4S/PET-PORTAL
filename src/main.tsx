@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { StorageProvider } from './context/StorageContext';
 import { MainLayout } from './components/layout/MainLayout';
@@ -35,7 +35,7 @@ try {
     <React.StrictMode>
       <ErrorBoundary>
         <StorageProvider>
-          <BrowserRouter>
+          <HashRouter>
             <React.Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
@@ -55,7 +55,7 @@ try {
               </Routes>
             </React.Suspense>
             <Toaster richColors position="top-right" />
-          </BrowserRouter>
+          </HashRouter>
         </StorageProvider>
       </ErrorBoundary>
     </React.StrictMode>,

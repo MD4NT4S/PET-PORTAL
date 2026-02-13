@@ -964,7 +964,7 @@ export default function Admin() {
                             <p className="text-secondary-500 mb-6">Selecione um PETiano para ver seu progresso.</p>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {members.map(member => (
+                                {members.filter(m => m.role === 'member').map(member => (
                                     <button
                                         key={member.id}
                                         onClick={() => {
@@ -973,9 +973,17 @@ export default function Admin() {
                                         }}
                                         className="flex flex-col items-center justify-center p-6 bg-secondary-900/50 hover:bg-secondary-800 border border-secondary-800 rounded-xl transition-all hover:scale-105 group"
                                     >
-                                        <div className="h-16 w-16 rounded-full bg-orange-500 flex items-center justify-center text-2xl font-bold text-white mb-3 group-hover:bg-orange-600">
-                                            {member.name.charAt(0).toUpperCase()}
-                                        </div>
+                                        {member.photoUrl ? (
+                                            <img
+                                                src={member.photoUrl}
+                                                alt={member.name}
+                                                className="h-16 w-16 rounded-full object-cover mb-3 border-2 border-orange-500 group-hover:border-orange-600"
+                                            />
+                                        ) : (
+                                            <div className="h-16 w-16 rounded-full bg-orange-500 flex items-center justify-center text-2xl font-bold text-white mb-3 group-hover:bg-orange-600">
+                                                {member.name.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
                                         <span className="font-medium text-white text-center">{member.name}</span>
                                         <span className="text-xs text-secondary-500 mt-1">Ver avaliações</span>
                                     </button>
