@@ -14,7 +14,7 @@ import { supabase } from '../lib/supabase';
 import emailjs from '@emailjs/browser';
 
 export default function Admin() {
-    const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, userRole, removeEvaluation, approveLoanReturn, notices, addNotice, removeNotice, currentUser } = useStorage();
+    const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, removeTicket, userRole, removeEvaluation, approveLoanReturn, notices, addNotice, removeNotice, currentUser } = useStorage();
 
 
     // Define tabs and permissions
@@ -1338,6 +1338,21 @@ export default function Admin() {
                                                     <Button variant="ghost" size="sm" onClick={() => handleTicketClick(ticket)}>
                                                         Gerenciar
                                                     </Button>
+                                                    {ticket.status === 'Concluído' && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                            onClick={async () => {
+                                                                if (confirm('Tem certeza que deseja excluir este ticket permanentemente?')) {
+                                                                    await removeTicket(ticket.id);
+                                                                }
+                                                            }}
+                                                            title="Excluir Ticket"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))

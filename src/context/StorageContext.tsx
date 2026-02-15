@@ -140,6 +140,7 @@ interface StorageContextType {
     logoutUser: () => void;
     addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'author'>) => void;
     updateTicket: (id: string, data: Partial<Ticket>) => void;
+    removeTicket: (id: string) => Promise<void>;
     addEvaluation: (evaluation: Omit<Evaluation, 'id' | 'createdAt' | 'author'>) => void;
     removeEvaluation: (id: string) => Promise<void>;
     addOmbudsman: (data: Omit<Ombudsman, 'id' | 'createdAt'>) => void;
@@ -508,7 +509,20 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
 
         setTickets(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+        setTickets(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
         toast.success('Ticket atualizado!');
+    };
+
+    const removeTicket = async (id: string) => {
+        const { error } = await supabase.from('tickets').delete().eq('id', id);
+
+        if (error) {
+            toast.error('Erro ao excluir ticket');
+            return;
+        }
+
+        setTickets(prev => prev.filter(t => t.id !== id));
+        toast.success('Ticket excluído com sucesso!');
     };
 
     const addFeedback = async (data: Omit<Feedback, 'id' | 'createdAt'>) => {
@@ -1129,6 +1143,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 tickets,
                 addTicket,
                 updateTicket,
+                removeTicket,
                 feedbacks,
                 addFeedback,
                 removeFeedback,
