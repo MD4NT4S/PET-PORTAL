@@ -121,7 +121,7 @@ export default function Calendario() {
                                         {displayedEvents.map(event => (
                                             <div
                                                 key={event.id}
-                                                className={`p-1 rounded text-xs font-medium flex justify-between items-center gap-1
+                                                className={`p-1 rounded text-xs font-medium flex justify-between items-center group/event gap-1 relative cursor-pointer
                                                     ${event.type === 'meeting' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
                                                         event.type === 'deadline' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
                                                             event.type === 'birthday' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300' :
@@ -146,48 +146,34 @@ export default function Calendario() {
                                                 {canManageCalendar && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleDelete(event.id, event.title); }}
-                                                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-900 hover:bg-red-200/50 dark:hover:text-red-300 dark:hover:bg-red-900/50 rounded flex-shrink-0 transition-all"
+                                                        className="opacity-0 group-hover/event:opacity-100 p-0.5 hover:text-red-900 hover:bg-red-200/50 dark:hover:text-red-300 dark:hover:bg-red-900/50 rounded flex-shrink-0 transition-all relative z-20"
                                                     >
                                                         <Trash2 className="h-3 w-3" />
                                                     </button>
                                                 )}
+                                                
+                                                {/* Tooltip on Hover */}
+                                                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/event:block w-48 p-2 bg-secondary-900 dark:bg-secondary-800 text-white rounded shadow-lg text-xs z-50 pointer-events-none">
+                                                    <div className="font-bold mb-1">{event.title}</div>
+                                                    {event.responsibles && event.responsibles.length > 0 && (
+                                                        <div>
+                                                            <span className="text-secondary-400">Responsáveis:</span>
+                                                            <ul className="list-disc pl-4 mt-1">
+                                                                {event.responsibles.map((r, i) => (
+                                                                    <li key={i}>{r}</li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {/* Tooltip arrow */}
+                                                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-secondary-900 dark:border-t-secondary-800"></div>
+                                                </div>
                                             </div>
                                         ))}
                                         
                                         {hiddenEventsCount > 0 && (
                                             <div className="text-[10px] text-secondary-500 dark:text-secondary-400 font-medium text-center mt-auto">
                                                 + {hiddenEventsCount} evento{hiddenEventsCount > 1 ? 's' : ''}
-                                            </div>
-                                        )}
-
-                                        {/* Unified Day Tooltip on Hover */}
-                                        {dayEvents.length > 0 && (
-                                            <div className="absolute left-1/2 -translate-x-1/2 top-0 mt-8 hidden group-hover:flex flex-col w-64 p-3 bg-secondary-900 dark:bg-secondary-800 text-white rounded-lg shadow-xl text-xs z-50 pointer-events-none">
-                                                <div className="font-bold mb-2 pb-2 border-b border-secondary-700">Eventos do dia {day}</div>
-                                                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
-                                                    {dayEvents.map(ev => (
-                                                        <div key={ev.id} className="flex flex-col gap-1">
-                                                            <div className="font-bold flex items-center gap-2 text-sm">
-                                                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                                                    ev.type === 'meeting' ? 'bg-blue-400' :
-                                                                    ev.type === 'deadline' ? 'bg-red-400' :
-                                                                    ev.type === 'birthday' ? 'bg-pink-400' : 'bg-purple-400'
-                                                                }`} />
-                                                                <span className="truncate">{ev.title}</span>
-                                                            </div>
-                                                            {ev.responsibles && ev.responsibles.length > 0 && (
-                                                                <div className="text-secondary-300 ml-4 leading-tight">
-                                                                    <span className="font-semibold text-secondary-400">Responsáveis:</span>
-                                                                    <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
-                                                                        {ev.responsibles.map((r, i) => (
-                                                                            <li key={i}>{r}</li>
-                                                                        ))}
-                                                                    </ul>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
                                             </div>
                                         )}
                                     </div>
