@@ -12,10 +12,11 @@ interface EventForm {
     title: string;
     date: string;
     type: 'meeting' | 'deadline' | 'event' | 'birthday';
+    responsibles?: string[];
 }
 
 export default function Calendario() {
-    const { events, addEvent, removeEvent, canManageCalendar, siteConfig } = useStorage();
+    const { events, members, addEvent, removeEvent, canManageCalendar, siteConfig } = useStorage();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { register, handleSubmit, reset } = useForm<EventForm>();
 
@@ -120,18 +121,42 @@ export default function Calendario() {
                                         <div
                                             key={event.id}
                                             className={`p-1 rounded text-xs font-medium flex justify-between items-center group/event gap-1
-                                                ${event.type === 'meeting' ? 'bg-blue-100 text-blue-700' :
-                                                    event.type === 'deadline' ? 'bg-red-100 text-red-700' :
-                                                        event.type === 'birthday' ? 'bg-pink-100 text-pink-700' :
-                                                            'bg-purple-100 text-purple-700'
+                                                ${event.type === 'meeting' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                                                    event.type === 'deadline' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                                                        event.type === 'birthday' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300' :
+                                                            'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
                                                 }`}
                                             title={event.title}
                                         >
                                             <span className="truncate flex-1 text-left">{event.title}</span>
+                                            {event.responsibles && event.responsibles.length > 0 && (
+                                                <div className="flex -space-x-1" title={event.responsibles.join(', ')}>
+                                                    {event.responsibles.slice(0, 3).map((r, i) => (
+                                                        <div key={i} className={`w-4 h-4 rounded-full border flex items-center justify-center text-[8px] font-bold ${
+                                                            event.type === 'meeting' ? 'bg-blue-200 text-blue-800 border-blue-100 dark:bg-blue-800 dark:text-blue-100 dark:border-blue-900' :
+                                                            event.type === 'deadline' ? 'bg-red-200 text-red-800 border-red-100 dark:bg-red-800 dark:text-red-100 dark:border-red-900' :
+                                                            event.type === 'birthday' ? 'bg-pink-200 text-pink-800 border-pink-100 dark:bg-pink-800 dark:text-pink-100 dark:border-pink-900' :
+                                                            'bg-purple-200 text-purple-800 border-purple-100 dark:bg-purple-800 dark:text-purple-100 dark:border-purple-900'
+                                                        }`}>
+                                                            {typeof r === 'string' && r.length > 0 ? r.charAt(0).toUpperCase() : '?'}
+                                                        </div>
+                                                    ))}
+                                                    {event.responsibles.length > 3 && (
+                                                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center text-[8px] font-bold ${
+                                                            event.type === 'meeting' ? 'bg-blue-200 text-blue-800 border-blue-100 dark:bg-blue-800 dark:text-blue-100 dark:border-blue-900' :
+                                                            event.type === 'deadline' ? 'bg-red-200 text-red-800 border-red-100 dark:bg-red-800 dark:text-red-100 dark:border-red-900' :
+                                                            event.type === 'birthday' ? 'bg-pink-200 text-pink-800 border-pink-100 dark:bg-pink-800 dark:text-pink-100 dark:border-pink-900' :
+                                                            'bg-purple-200 text-purple-800 border-purple-100 dark:bg-purple-800 dark:text-purple-100 dark:border-purple-900'
+                                                        }`}>
+                                                            +
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                             {canManageCalendar && (
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleDelete(event.id, event.title); }}
-                                                    className="opacity-0 group-hover/event:opacity-100 p-0.5 hover:text-red-900 hover:bg-red-200/50 rounded flex-shrink-0 transition-all"
+                                                    className="opacity-0 group-hover/event:opacity-100 p-0.5 hover:text-red-900 hover:bg-red-200/50 dark:hover:text-red-300 dark:hover:bg-red-900/50 rounded flex-shrink-0 transition-all"
                                                 >
                                                     <Trash2 className="h-3 w-3" />
                                                 </button>
@@ -219,6 +244,23 @@ export default function Calendario() {
                                 <option value="event">Evento</option>
                                 <option value="birthday">Aniversário</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium block">Responsáveis (Opcional)</label>
+                        <div className="max-h-32 overflow-y-auto border border-secondary-300 dark:border-secondary-700 rounded-md p-2 bg-white dark:bg-secondary-950 space-y-1">
+                            {members.map(member => (
+                                <label key={member.id} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-secondary-50 dark:hover:bg-secondary-900 rounded px-1">
+                                    <input
+                                        type="checkbox"
+                                        value={member.name}
+                                        {...register('responsibles')}
+                                        className="rounded border-secondary-300 text-primary-600 focus:ring-primary-600 dark:border-secondary-600 dark:bg-secondary-800"
+                                    />
+                                    <span className="text-sm text-secondary-700 dark:text-secondary-300">{member.name}</span>
+                                </label>
+                            ))}
                         </div>
                     </div>
 

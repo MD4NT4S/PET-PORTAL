@@ -225,6 +225,7 @@ export interface CalendarEvent {
     date: string; // DD/MM/YYYY or DD/MM
     title: string;
     type: 'meeting' | 'deadline' | 'event' | 'birthday';
+    responsibles?: string[];
 }
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
