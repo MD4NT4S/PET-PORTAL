@@ -172,8 +172,41 @@ export default function Calendario() {
                                         ))}
                                         
                                         {hiddenEventsCount > 0 && (
-                                            <div className="text-[10px] text-secondary-500 dark:text-secondary-400 font-medium text-center mt-auto">
-                                                + {hiddenEventsCount} evento{hiddenEventsCount > 1 ? 's' : ''}
+                                            <div className="text-[10px] text-secondary-500 dark:text-secondary-400 font-medium text-center mt-auto cursor-pointer relative group/more">
+                                                <span className="hover:text-primary-600 transition-colors py-1 inline-block w-full">
+                                                    + {hiddenEventsCount} evento{hiddenEventsCount > 1 ? 's' : ''}
+                                                </span>
+                                                
+                                                {/* Tooltip for ALL events on this day (appears on the right side) */}
+                                                <div className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 hidden group-hover/more:flex flex-col w-64 p-3 bg-secondary-900 dark:bg-secondary-800 text-white rounded-lg shadow-xl text-xs z-50 pointer-events-none">
+                                                    <div className="font-bold mb-2 pb-2 border-b border-secondary-700">Eventos do dia {day}</div>
+                                                    <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                                                        {dayEvents.map(ev => (
+                                                            <div key={ev.id} className="flex flex-col gap-1">
+                                                                <div className="font-bold flex items-center gap-2 text-sm">
+                                                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                                                        ev.type === 'meeting' ? 'bg-blue-400' :
+                                                                        ev.type === 'deadline' ? 'bg-red-400' :
+                                                                        ev.type === 'birthday' ? 'bg-pink-400' : 'bg-purple-400'
+                                                                    }`} />
+                                                                    <span className="truncate">{ev.title}</span>
+                                                                </div>
+                                                                {ev.responsibles && ev.responsibles.length > 0 && (
+                                                                    <div className="text-secondary-300 ml-4 leading-tight">
+                                                                        <span className="font-semibold text-secondary-400">Responsáveis:</span>
+                                                                        <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                                                                            {ev.responsibles.map((r, i) => (
+                                                                                <li key={i}>{r}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    {/* Tooltip Arrow pointing left */}
+                                                    <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-secondary-900 dark:border-r-secondary-800"></div>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -261,14 +294,16 @@ export default function Calendario() {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium block">Responsáveis (Opcional)</label>
+                        <label className="text-sm font-medium block">
+                            Responsáveis <span className="text-red-500">*</span>
+                        </label>
                         <div className="max-h-32 overflow-y-auto border border-secondary-300 dark:border-secondary-700 rounded-md p-2 bg-white dark:bg-secondary-950 space-y-1">
                             {members.filter(m => m.role === 'member').map(member => (
                                 <label key={member.id} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-secondary-50 dark:hover:bg-secondary-900 rounded px-1">
                                     <input
                                         type="checkbox"
                                         value={member.name}
-                                        {...register('responsibles')}
+                                        {...register('responsibles', { required: 'Selecione pelo menos um responsável' })}
                                         className="rounded border-secondary-300 text-primary-600 focus:ring-primary-600 dark:border-secondary-600 dark:bg-secondary-800"
                                     />
                                     <span className="text-sm text-secondary-700 dark:text-secondary-300">{member.name}</span>
