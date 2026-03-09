@@ -77,11 +77,9 @@ export default function Calendario() {
                         {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                     </CardTitle>
                     <div className="flex gap-2">
-                        {canManageCalendar && (
-                            <Button size="sm" onClick={() => setIsModalOpen(true)}>
-                                <Plus className="h-4 w-4 mr-2" /> Novo Evento
-                            </Button>
-                        )}
+                        <Button size="sm" onClick={() => setIsModalOpen(true)}>
+                            <Plus className="h-4 w-4 mr-2" /> Novo Evento
+                        </Button>
                         <Button variant="outline" size="icon" onClick={handlePrevMonth}>
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
@@ -120,17 +118,16 @@ export default function Calendario() {
                                     {dayEvents.map(event => (
                                         <div
                                             key={event.id}
-                                            className={`p-1 rounded text-xs font-medium flex justify-between items-center group/event gap-1
+                                            className={`p-1 rounded text-xs font-medium flex justify-between items-center group/event gap-1 relative cursor-pointer
                                                 ${event.type === 'meeting' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
                                                     event.type === 'deadline' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
                                                         event.type === 'birthday' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300' :
                                                             'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
                                                 }`}
-                                            title={event.title}
                                         >
                                             <span className="truncate flex-1 text-left">{event.title}</span>
                                             {event.responsibles && event.responsibles.length > 0 && (
-                                                <div className="flex -space-x-1" title={event.responsibles.join(', ')}>
+                                                <div className="flex -space-x-1">
                                                     {event.responsibles.slice(0, 3).map((r, i) => (
                                                         <div key={i} className={`w-4 h-4 rounded-full border flex items-center justify-center text-[8px] font-bold ${
                                                             event.type === 'meeting' ? 'bg-blue-200 text-blue-800 border-blue-100 dark:bg-blue-800 dark:text-blue-100 dark:border-blue-900' :
@@ -161,6 +158,23 @@ export default function Calendario() {
                                                     <Trash2 className="h-3 w-3" />
                                                 </button>
                                             )}
+                                            
+                                            {/* Tooltip on Hover */}
+                                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/event:block w-48 p-2 bg-secondary-900 dark:bg-secondary-800 text-white rounded shadow-lg text-xs z-50">
+                                                <div className="font-bold mb-1">{event.title}</div>
+                                                {event.responsibles && event.responsibles.length > 0 && (
+                                                    <div>
+                                                        <span className="text-secondary-400">Responsáveis:</span>
+                                                        <ul className="list-disc pl-4 mt-1">
+                                                            {event.responsibles.map((r, i) => (
+                                                                <li key={i}>{r}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {/* Tooltip arrow */}
+                                                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-secondary-900 dark:border-t-secondary-800"></div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -250,7 +264,7 @@ export default function Calendario() {
                     <div className="space-y-2">
                         <label className="text-sm font-medium block">Responsáveis (Opcional)</label>
                         <div className="max-h-32 overflow-y-auto border border-secondary-300 dark:border-secondary-700 rounded-md p-2 bg-white dark:bg-secondary-950 space-y-1">
-                            {members.map(member => (
+                            {members.filter(m => m.role === 'member').map(member => (
                                 <label key={member.id} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-secondary-50 dark:hover:bg-secondary-900 rounded px-1">
                                     <input
                                         type="checkbox"
