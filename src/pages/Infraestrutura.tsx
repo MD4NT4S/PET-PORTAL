@@ -187,7 +187,7 @@ export default function Infraestrutura() {
     const searchResults = React.useMemo(() => {
         if (!searchTerm.trim()) return [];
         const term = searchTerm.toLowerCase();
-        
+
         const results: Array<{ item: InventoryItem; sectorName: string }> = [];
         sectors.forEach(sector => {
             sector.items.forEach(item => {
@@ -196,7 +196,7 @@ export default function Infraestrutura() {
                 }
             });
         });
-        
+
         return results.slice(0, 8); // Limit to top 8 results to avoid unmanageable dropdowns
     }, [searchTerm, sectors]);
 
@@ -229,7 +229,7 @@ export default function Infraestrutura() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary-400" />
                     <input
                         type="text"
-                        placeholder="Buscar material no armário (ex: Arduino, cabo, papel)..."
+                        placeholder="Buscar material no armário (ex: Caneta, tesoura, papel)..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-white dark:bg-secondary-900 border border-secondary-200 dark:border-secondary-800 rounded-xl shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all dark:text-white"
@@ -266,7 +266,7 @@ export default function Infraestrutura() {
                                                     </span>
                                                 </div>
                                             </div>
-                                            
+
                                             <div className="flex flex-col items-end gap-2">
                                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap
                                                     ${result.item.status === 'Disponível' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
@@ -275,7 +275,7 @@ export default function Infraestrutura() {
                                                 `}>
                                                     {result.item.status}
                                                 </span>
-                                                
+
                                                 {currentUser && result.item.quantity > 0 && (
                                                     <Button
                                                         size="sm"
