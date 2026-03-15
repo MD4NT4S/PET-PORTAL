@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStorage } from '../context/StorageContext';
 import { Modal } from '../components/ui/Modal';
-import { Package, Info, ArrowUpRight, CheckCircle2, GripVertical } from 'lucide-react';
+import { Package, Info, ArrowUpRight, CheckCircle2, GripVertical, Download } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { toast } from 'sonner';
@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 import { Camera, Loader2 } from 'lucide-react';
 
 export default function Infraestrutura() {
-    const { sectors, addLoan, currentUser, userRole, reorderSectors } = useStorage();
+    const { sectors, loans, addLoan, currentUser, userRole, reorderSectors } = useStorage();
     const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
     const [selectedItemForLoan, setSelectedItemForLoan] = useState<InventoryItem | null>(null);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -121,13 +121,83 @@ export default function Infraestrutura() {
         }
     };
 
+    const handleExportInventory = () => {
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Setor,Categoria,Nome do Item,Código,Quantidade,Status\n";
+
+        sectors.forEach(sector => {
+            sector.items.forEach(item => {
+                const row = [
+                    `"${sector.name}"`,
+                    `"${sector.category}"`,
+                    `"${item.name}"`,
+                    `"${item.code || ''}"`,
+                    item.quantity,
+                    `"${item.status}"`
+                ].join(",");
+                csvContent += row + "\n";
+            });
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `estoque-${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("Relatório de estoque baixado!");
+    };
+
+    const handleExportLoans = () => {
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "ID,Item,Solicitante,Tipo,Quantidade,Data Cadastro,Devolução Prevista,Status\n";
+
+        loans.forEach(loan => {
+            const row = [
+                `"${loan.id}"`,
+                `"${loan.itemName}"`,
+                `"${loan.userName}"`,
+                `"${loan.type}"`,
+                loan.quantity,
+                `"${new Date(loan.date).toLocaleDateString()}"`,
+                `"${loan.expectedReturnDate ? new Date(loan.expectedReturnDate).toLocaleDateString() : '-'}"`,
+                `"${loan.status}"`
+            ].join(",");
+            csvContent += row + "\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `historico-emprestimos-${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("Relatório de histórico baixado!");
+    };
+
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight mb-2">Infraestrutura e Inventário</h1>
-                <p className="text-secondary-500 dark:text-secondary-400">
-                    Visualize a organização do armário e localize os materiais disponíveis.
-                </p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight mb-2">Infraestrutura e Inventário</h1>
+                    <p className="text-secondary-500 dark:text-secondary-400">
+                        Visualize a organização do armário e localize os materiais disponíveis.
+                    </p>
+                </div>
+                {isAdmin && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <Button variant="outline" size="sm" onClick={handleExportInventory} className="flex items-center">
+                            <Download className="w-4 h-4 mr-2" />
+                            Relatório de Estoque
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleExportLoans} className="flex items-center">
+                            <Download className="w-4 h-4 mr-2" />
+                            Histórico de Empréstimos
+                        </Button>
+                    </div>
+                )}
             </div>
 
             <div className="flex justify-center">
