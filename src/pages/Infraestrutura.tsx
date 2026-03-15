@@ -122,8 +122,10 @@ export default function Infraestrutura() {
     };
 
     const handleExportInventory = () => {
-        let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "Setor,Categoria,Nome do Item,Código,Quantidade,Status\n";
+        // Adicionando BOM (Byte Order Mark) para o Excel reconhecer UTF-8
+        let csvContent = "\uFEFF";
+        // Usando ponto-e-vírgula que é o padrão do Excel pt-BR
+        csvContent += "Setor;Categoria;Nome do Item;Código;Quantidade;Status\n";
 
         sectors.forEach(sector => {
             sector.items.forEach(item => {
@@ -134,12 +136,14 @@ export default function Infraestrutura() {
                     `"${item.code || ''}"`,
                     item.quantity,
                     `"${item.status}"`
-                ].join(",");
+                ].join(";");
                 csvContent += row + "\n";
             });
         });
 
-        const encodedUri = encodeURI(csvContent);
+        // Usando Blob em vez de encodeURI para criar o arquivo corretamente
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const encodedUri = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
         link.setAttribute("download", `estoque-${new Date().toISOString().split('T')[0]}.csv`);
@@ -150,8 +154,8 @@ export default function Infraestrutura() {
     };
 
     const handleExportLoans = () => {
-        let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "ID,Item,Solicitante,Tipo,Quantidade,Data Cadastro,Devolução Prevista,Status\n";
+        let csvContent = "\uFEFF";
+        csvContent += "ID;Item;Solicitante;Tipo;Quantidade;Data Cadastro;Devolução Prevista;Status\n";
 
         loans.forEach(loan => {
             const row = [
@@ -163,11 +167,12 @@ export default function Infraestrutura() {
                 `"${new Date(loan.date).toLocaleDateString()}"`,
                 `"${loan.expectedReturnDate ? new Date(loan.expectedReturnDate).toLocaleDateString() : '-'}"`,
                 `"${loan.status}"`
-            ].join(",");
+            ].join(";");
             csvContent += row + "\n";
         });
 
-        const encodedUri = encodeURI(csvContent);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const encodedUri = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
         link.setAttribute("download", `historico-emprestimos-${new Date().toISOString().split('T')[0]}.csv`);
