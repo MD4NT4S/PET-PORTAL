@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStorage } from '../context/StorageContext';
 import { Modal } from '../components/ui/Modal';
-import { Package, Info, ArrowUpRight, CheckCircle2, GripVertical, Download } from 'lucide-react';
+import { Package, Info, ArrowUpRight, CheckCircle2, GripVertical, Download, Search } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ export default function Infraestrutura() {
     const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
     const [selectedItemForLoan, setSelectedItemForLoan] = useState<InventoryItem | null>(null);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const [loanQuantity, setLoanQuantity] = useState(1);
     const [loanDays, setLoanDays] = useState(7);
@@ -182,6 +183,23 @@ export default function Infraestrutura() {
         toast.success("Relatório de histórico baixado!");
     };
 
+    // Calculate search results
+    const searchResults = React.useMemo(() => {
+        if (!searchTerm.trim()) return [];
+        const term = searchTerm.toLowerCase();
+        
+        const results: Array<{ item: InventoryItem; sectorName: string }> = [];
+        sectors.forEach(sector => {
+            sector.items.forEach(item => {
+                if (item.name.toLowerCase().includes(term) || (item.code && item.code.toLowerCase().includes(term))) {
+                    results.push({ item, sectorName: sector.name });
+                }
+            });
+        });
+        
+        return results.slice(0, 8); // Limit to top 8 results to avoid unmanageable dropdowns
+    }, [searchTerm, sectors]);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -201,6 +219,89 @@ export default function Infraestrutura() {
                             <Download className="w-4 h-4 mr-2" />
                             Histórico de Empréstimos
                         </Button>
+                    </div>
+                )}
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative max-w-xl mx-auto z-20">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary-400" />
+                    <input
+                        type="text"
+                        placeholder="Buscar material no armário (ex: Arduino, cabo, papel)..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-white dark:bg-secondary-900 border border-secondary-200 dark:border-secondary-800 rounded-xl shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all dark:text-white"
+                    />
+                </div>
+
+                {/* Dropdown Results */}
+                {searchTerm.trim() !== '' && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-secondary-900 border border-secondary-200 dark:border-secondary-800 rounded-xl shadow-2xl overflow-hidden max-h-[400px] overflow-y-auto">
+                        {searchResults.length > 0 ? (
+                            <ul className="divide-y divide-secondary-100 dark:divide-secondary-800">
+                                {searchResults.map((result, idx) => (
+                                    <li key={idx} className="p-3 hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-secondary-900 dark:text-secondary-100">
+                                                        {result.item.name}
+                                                    </span>
+                                                    {result.item.code && (
+                                                        <span className="text-[10px] bg-secondary-100 dark:bg-secondary-800 px-1.5 py-0.5 rounded font-mono text-secondary-600 dark:text-secondary-400">
+                                                            {result.item.code}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-xs text-secondary-500 flex items-center">
+                                                        <Package className="w-3 h-3 mr-1" />
+                                                        {result.sectorName}
+                                                    </span>
+                                                    <span className="text-secondary-300 dark:text-secondary-700">&bull;</span>
+                                                    <span className="text-xs text-secondary-500">
+                                                        Estoque: <strong className="text-secondary-700 dark:text-secondary-300">{result.item.quantity}</strong>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex flex-col items-end gap-2">
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap
+                                                    ${result.item.status === 'Disponível' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                        result.item.status === 'Indisponível' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                            'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}
+                                                `}>
+                                                    {result.item.status}
+                                                </span>
+                                                
+                                                {currentUser && result.item.quantity > 0 && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="primary"
+                                                        className="h-7 text-xs px-3 shadow-none"
+                                                        onClick={() => {
+                                                            setSelectedItemForLoan(result.item);
+                                                            setLoanQuantity(1);
+                                                            setLoanDays(7);
+                                                            setSearchTerm(''); // Limpa a busca ao abrir o modal
+                                                        }}
+                                                    >
+                                                        Solicitar
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <div className="p-8 text-center text-secondary-500 flex flex-col items-center">
+                                <Search className="w-8 h-8 text-secondary-300 mb-2 opacity-50" />
+                                <p>Nenhum item encontrado no armário com "{searchTerm}".</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
