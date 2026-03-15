@@ -68,7 +68,7 @@ export default function Infraestrutura() {
         setDraggedIndex(null);
     };
 
-    const handleLoanRequest = async (type: 'Empréstimo' | 'Uso Contínuo') => {
+    const handleLoanRequest = async (type: 'Empréstimo' | 'Uso Contínuo' | 'Empréstimo Temporário') => {
         if (selectedItemForLoan) {
             if (!loanPhoto) {
                 toast.error('É obrigatório enviar uma foto do item.');
@@ -102,6 +102,10 @@ export default function Infraestrutura() {
             if (type === 'Empréstimo') {
                 const date = new Date();
                 date.setDate(date.getDate() + loanDays);
+                returnDate = date.toISOString();
+            } else if (type === 'Empréstimo Temporário') {
+                // Return date is today for temporary loans
+                const date = new Date();
                 returnDate = date.toISOString();
             }
 
@@ -325,6 +329,7 @@ export default function Infraestrutura() {
                                 <input
                                     type="file"
                                     accept="image/*"
+                                    capture="environment"
                                     onChange={(e) => setLoanPhoto(e.target.files?.[0] || null)}
                                     className="hidden"
                                     id="loan-photo-upload"
@@ -364,6 +369,19 @@ export default function Infraestrutura() {
                                 <span className="text-xs text-secondary-500">Item será devolvido ao estoque.</span>
                             </div>
                             <ArrowUpRight className="h-5 w-5 text-secondary-400 group-hover:text-primary-500" />
+                        </button>
+
+                        <button
+                            onClick={() => handleLoanRequest('Empréstimo Temporário')}
+                            disabled={isUploading}
+                            className={`flex items-center justify-between p-4 border border-secondary-200 dark:border-secondary-800 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20 hover:border-yellow-200 transition-all text-left group
+                                ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <div>
+                                <span className="block font-semibold text-yellow-700 dark:text-yellow-400 group-hover:text-yellow-800">Confirmar Empréstimo Temporário</span>
+                                <span className="text-xs text-secondary-500">Uso no mesmo dia (ex: atividades na sala do PET).</span>
+                            </div>
+                            <ArrowUpRight className="h-5 w-5 text-secondary-400 group-hover:text-yellow-500" />
                         </button>
 
                         <button

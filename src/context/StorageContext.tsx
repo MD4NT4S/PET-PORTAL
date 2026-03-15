@@ -95,7 +95,7 @@ export interface Loan {
     itemName: string;
     userId: string;
     userName: string;
-    type: 'Empréstimo' | 'Uso Contínuo';
+    type: 'Empréstimo' | 'Uso Contínuo' | 'Empréstimo Temporário';
     quantity: number;
     expectedReturnDate?: string;
     date: string;
@@ -152,7 +152,7 @@ interface StorageContextType {
     updateSector: (id: string, data: Partial<Sector>) => void;
     updateSectorItems: (id: string, items: InventoryItem[]) => void;
     reorderSectors: (sectors: Sector[]) => Promise<void>;
-    addLoan: (itemId: string, type: 'Empréstimo' | 'Uso Contínuo', quantity: number, returnDate?: string, photoUrl?: string) => Promise<boolean>;
+    addLoan: (itemId: string, type: 'Empréstimo' | 'Uso Contínuo' | 'Empréstimo Temporário', quantity: number, returnDate?: string, photoUrl?: string) => Promise<boolean>;
     returnLoan: (loanId: string, returnPhotoUrl: string) => Promise<boolean>;
     approveLoanReturn: (loanId: string, condition: 'ok' | 'damaged' | 'dirty', notes?: string) => Promise<boolean>;
 
@@ -782,7 +782,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const addLoan = async (itemId: string, type: 'Empréstimo' | 'Uso Contínuo', quantity: number, returnDate?: string, photoUrl?: string): Promise<boolean> => {
+    const addLoan = async (itemId: string, type: 'Empréstimo' | 'Uso Contínuo' | 'Empréstimo Temporário', quantity: number, returnDate?: string, photoUrl?: string): Promise<boolean> => {
         if (!currentUser) {
             toast.error('Você precisa estar logado.');
             return false;
@@ -799,7 +799,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         const newQuantity = item.quantity - quantity;
         let newStatus = item.status;
         if (newQuantity === 0) {
-            newStatus = type === 'Empréstimo' ? 'Emprestado' : 'Indisponível';
+            newStatus = (type === 'Empréstimo' || type === 'Empréstimo Temporário') ? 'Emprestado' : 'Indisponível';
         }
 
         // 2. Update item
