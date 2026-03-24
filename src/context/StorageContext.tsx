@@ -60,6 +60,7 @@ export interface Ombudsman {
     isAnonymous: boolean;
     identification?: string; // Optional identification
     status?: 'Pendente' | 'Atendido';
+    response?: string; // Admin response
     createdAt: string;
 }
 
@@ -147,7 +148,7 @@ interface StorageContextType {
     addMember: (member: Omit<Member, 'id'>) => void;
     removeMember: (id: string) => void;
     updateMember: (id: string, data: Partial<Member>) => void;
-    updateOmbudsmanStatus: (id: string, status: 'Pendente' | 'Atendido') => void;
+    updateOmbudsmanStatus: (id: string, status: 'Pendente' | 'Atendido', response?: string) => void;
     removeOmbudsman: (id: string) => void;
     updateSector: (id: string, data: Partial<Sector>) => void;
     updateSectorItems: (id: string, items: InventoryItem[]) => void;
@@ -465,24 +466,6 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
 
     // --- Actions ---
-    // ... actions (addTicket, etc) are unchanged, skipping for brevity ...
-    // Note: In real implementation I would keep them. 
-    // Since I'm using replace_file_content, I need to be careful not to delete them.
-    // I will target the Auth State and loginUser specifically or use a larger chunk if safer.
-    // The chunk below replaces from `// Auth State` down to `loginUser`. 
-    // Wait, the block I selected is huge. I should split into smaller chunks. 
-    // Chunk 1: Auth State & useEffects. Chunk 2: loginUser.
-
-    // REDOING CHUNK STRATEGY IN THOUGHT.
-    // Chunk 1: State definitions.
-    // Chunk 2: loginUser function.
-    // Chunk 3: Context Provider value.
-
-    // Let's execute Chunk 1 now.
-
-
-
-    // --- Actions ---
 
     const addTicket = async (data: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'author'>) => {
         const newTicket = {
@@ -594,13 +577,17 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const updateOmbudsmanStatus = async (id: string, status: 'Pendente' | 'Atendido') => {
-        const { error } = await supabase.from('ombudsman').update({ status }).eq('id', id);
+    const updateOmbudsmanStatus = async (id: string, status: 'Pendente' | 'Atendido', response?: string) => {
+        const updateData: any = { status };
+        if (response !== undefined) {
+            updateData.response = response;
+        }
+        const { error } = await supabase.from('ombudsman').update(updateData).eq('id', id);
         if (error) {
             toast.error('Erro ao atualizar status');
             return;
         }
-        setOmbudsman(prev => prev.map(item => item.id === id ? { ...item, status } : item));
+        setOmbudsman(prev => prev.map(item => item.id === id ? { ...item, status, ...(response !== undefined ? { response } : {}) } : item));
     };
 
     const removeOmbudsman = async (id: string) => {
@@ -614,7 +601,6 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
     const updateSiteConfig = async (config: SiteConfig) => {
         // Assuming single config row
-        const { error } = await supabase.from('site_config').update({ config }).neq('id', '00000000-0000-0000-0000-000000000000'); // Hacky update all, or fetch ID first.
         // Better:
         const { data: current } = await supabase.from('site_config').select('id').limit(1).single();
         if (current) {

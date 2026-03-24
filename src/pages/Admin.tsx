@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import AdminLogin from '../components/admin/AdminLogin';
 import SiteEditor from '../components/admin/SiteEditor';
 import { Modal } from '../components/ui/Modal';
-import type { Member, Sector, InventoryItem, Evaluation } from '../context/StorageContext';
+import type { Member, Sector, InventoryItem, Evaluation, Ombudsman } from '../context/StorageContext';
 import { supabase } from '../lib/supabase';
 import emailjs from '@emailjs/browser';
 
@@ -58,6 +58,10 @@ export default function Admin() {
     const [editName, setEditName] = useState('');
     const [editEmail, setEditEmail] = useState('');
     const [editPassword, setEditPassword] = useState('');
+
+    // Ombudsman State
+    const [resolvingOmbudsman, setResolvingOmbudsman] = useState<Ombudsman | null>(null);
+    const [ombudsmanResponse, setOmbudsmanResponse] = useState('');
 
     // Infrastructure State
     const [editingSector, setEditingSector] = useState<Sector | null>(null);
@@ -260,9 +264,14 @@ export default function Admin() {
         }
     };
 
-    const handleResolveOmbudsman = (id: string) => {
-        updateOmbudsmanStatus(id, 'Atendido');
-        toast.success('Solicitação marcada como atendida.');
+    const handleResolveOmbudsmanSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (resolvingOmbudsman) {
+            updateOmbudsmanStatus(resolvingOmbudsman.id, 'Atendido', ombudsmanResponse);
+            toast.success('Solicitação marcada como atendida.');
+            setResolvingOmbudsman(null);
+            setOmbudsmanResponse('');
+        }
     };
 
     const handleRemoveOmbudsman = (id: string) => {
@@ -1260,8 +1269,18 @@ export default function Admin() {
                                                         <span className="font-medium">{item.identification || 'Não identificado'}</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 truncate max-w-xs" title={item.text}>{item.text}</td>
                                                 <td className="px-6 py-4">
+                                                    <div className="max-w-xs">
+                                                        <p className="truncate" title={item.text}>{item.text}</p>
+                                                        {item.response && (
+                                                            <div className="mt-2 p-2 bg-secondary-100 dark:bg-secondary-800 rounded text-xs text-secondary-700 dark:text-secondary-300 border-l-2 border-primary-500">
+                                                                <span className="font-semibold block mb-1">Resposta:</span>
+                                                                {item.response}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 align-top">
                                                     <span className={`px-2 py-1 rounded text-xs font-semibold
                                                         ${item.status === 'Atendido' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                                         {item.status || 'Pendente'}
@@ -1269,7 +1288,7 @@ export default function Admin() {
                                                 </td>
                                                 <td className="px-6 py-4 flex gap-2">
                                                     {item.status !== 'Atendido' && (
-                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={() => handleResolveOmbudsman(item.id)} title="Marcar como Atendido">
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={() => { setResolvingOmbudsman(item); setOmbudsmanResponse(''); }} title="Marcar como Atendido">
                                                             <Check className="h-4 w-4" />
                                                         </Button>
                                                     )}
@@ -1418,6 +1437,53 @@ export default function Admin() {
                             Cancelar
                         </Button>
                         <Button type="submit">Atualizar</Button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Resolve Ombudsman Modal */}
+            <Modal
+                isOpen={!!resolvingOmbudsman}
+                onClose={() => setResolvingOmbudsman(null)}
+                title="Responder Manifestação"
+            >
+                <form onSubmit={handleResolveOmbudsmanSubmit} className="space-y-4">
+                    {resolvingOmbudsman && (
+                        <div className="p-4 bg-secondary-50 dark:bg-secondary-900 rounded-lg space-y-2 mb-4">
+                            <div className="flex justify-between">
+                                <span className="font-bold">{resolvingOmbudsman.type}</span>
+                                <span className="text-xs text-secondary-500">
+                                    {new Date(resolvingOmbudsman.createdAt).toLocaleDateString()}
+                                </span>
+                            </div>
+                            <p className="text-sm text-secondary-600 dark:text-secondary-300">
+                                {resolvingOmbudsman.text}
+                            </p>
+                            <p className="text-xs text-secondary-400">
+                                Autor: {resolvingOmbudsman.isAnonymous ? 'Anônimo' : (resolvingOmbudsman.identification || 'Não identificado')}
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium dark:text-secondary-200">Mensagem de Resposta (Opcional)</label>
+                        <textarea
+                            value={ombudsmanResponse}
+                            onChange={(e) => setOmbudsmanResponse(e.target.value)}
+                            rows={4}
+                            className="w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm resize-none dark:bg-secondary-950 dark:border-secondary-700 dark:text-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                            placeholder="Escreva uma resposta de atendimento..."
+                        />
+                    </div>
+
+                    <div className="flex justify-end space-x-2 pt-4">
+                        <Button variant="outline" type="button" onClick={() => setResolvingOmbudsman(null)}>
+                            Cancelar
+                        </Button>
+                        <Button type="submit">
+                            <Check className="mr-2 h-4 w-4" />
+                            Marcar como Atendido
+                        </Button>
                     </div>
                 </form>
             </Modal>
