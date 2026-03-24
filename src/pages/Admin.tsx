@@ -62,6 +62,7 @@ export default function Admin() {
     // Ombudsman State
     const [resolvingOmbudsman, setResolvingOmbudsman] = useState<Ombudsman | null>(null);
     const [ombudsmanResponse, setOmbudsmanResponse] = useState('');
+    const [ombudsmanStatus, setOmbudsmanStatus] = useState<'Pendente' | 'Atendido'>('Pendente');
 
     // Infrastructure State
     const [editingSector, setEditingSector] = useState<Sector | null>(null);
@@ -267,8 +268,8 @@ export default function Admin() {
     const handleResolveOmbudsmanSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (resolvingOmbudsman) {
-            updateOmbudsmanStatus(resolvingOmbudsman.id, 'Atendido', ombudsmanResponse);
-            toast.success('Solicitação marcada como atendida.');
+            updateOmbudsmanStatus(resolvingOmbudsman.id, ombudsmanStatus, ombudsmanResponse);
+            toast.success('Solicitação atualizada com sucesso.');
             setResolvingOmbudsman(null);
             setOmbudsmanResponse('');
         }
@@ -1287,9 +1288,21 @@ export default function Admin() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 flex gap-2">
-                                                    {item.status !== 'Atendido' && (
-                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={() => { setResolvingOmbudsman(item); setOmbudsmanResponse(''); }} title="Marcar como Atendido">
+                                                    {item.status !== 'Atendido' ? (
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={() => { 
+                                                            setResolvingOmbudsman(item); 
+                                                            setOmbudsmanResponse(item.response || ''); 
+                                                            setOmbudsmanStatus(item.status || 'Pendente');
+                                                        }} title="Marcar como Atendido">
                                                             <Check className="h-4 w-4" />
+                                                        </Button>
+                                                    ) : (
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600" onClick={() => { 
+                                                            setResolvingOmbudsman(item); 
+                                                            setOmbudsmanResponse(item.response || ''); 
+                                                            setOmbudsmanStatus('Atendido');
+                                                        }} title="Editar Resposta / Status">
+                                                            <Pencil className="h-4 w-4" />
                                                         </Button>
                                                     )}
                                                     <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" onClick={() => handleRemoveOmbudsman(item.id)} title="Excluir">
@@ -1465,15 +1478,29 @@ export default function Admin() {
                         </div>
                     )}
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium dark:text-secondary-200">Mensagem de Resposta (Opcional)</label>
-                        <textarea
-                            value={ombudsmanResponse}
-                            onChange={(e) => setOmbudsmanResponse(e.target.value)}
-                            rows={4}
-                            className="w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm resize-none dark:bg-secondary-950 dark:border-secondary-700 dark:text-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-600"
-                            placeholder="Escreva uma resposta de atendimento..."
-                        />
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium dark:text-secondary-200">Status</label>
+                            <select
+                                value={ombudsmanStatus}
+                                onChange={(e) => setOmbudsmanStatus(e.target.value as 'Pendente' | 'Atendido')}
+                                className="w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm dark:bg-secondary-950 dark:border-secondary-700 dark:text-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                            >
+                                <option value="Pendente">Pendente</option>
+                                <option value="Atendido">Atendido</option>
+                            </select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium dark:text-secondary-200">Mensagem de Resposta (Opcional)</label>
+                            <textarea
+                                value={ombudsmanResponse}
+                                onChange={(e) => setOmbudsmanResponse(e.target.value)}
+                                rows={4}
+                                className="w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm resize-none dark:bg-secondary-950 dark:border-secondary-700 dark:text-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                                placeholder="Escreva uma resposta de atendimento..."
+                            />
+                        </div>
                     </div>
 
                     <div className="flex justify-end space-x-2 pt-4">
@@ -1482,7 +1509,7 @@ export default function Admin() {
                         </Button>
                         <Button type="submit">
                             <Check className="mr-2 h-4 w-4" />
-                            Marcar como Atendido
+                            Salvar
                         </Button>
                     </div>
                 </form>
