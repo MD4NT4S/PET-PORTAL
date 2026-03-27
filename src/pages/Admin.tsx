@@ -3,7 +3,7 @@ import { useStorage } from '../context/StorageContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Table as TableIcon, LayoutTemplate, LogOut, Users, Trash2, Plus, Pencil, Check, X, Box, Package, ShieldAlert, Megaphone } from 'lucide-react';
+import { Download, Table as TableIcon, LayoutTemplate, LogOut, Users, Trash2, Plus, Minus, Pencil, Check, X, Box, Package, ShieldAlert, Megaphone } from 'lucide-react';
 
 import { toast } from 'sonner';
 import AdminLogin from '../components/admin/AdminLogin';
@@ -340,6 +340,24 @@ export default function Admin() {
 
         // Update local state
         setEditingSector({ ...editingSector, items: updatedItems });
+    };
+
+    const handleUpdateItemQuantity = (itemId: string, delta: number) => {
+        if (!editingSector) return;
+
+        const updatedItems = editingSector.items.map(item => {
+            if (item.id === itemId) {
+                const newQuantity = Math.max(0, item.quantity + delta);
+                let newStatus = item.status;
+                if (newQuantity === 0) newStatus = 'Indisponível';
+                else if (newQuantity > 0 && item.status === 'Indisponível') newStatus = 'Disponível';
+                
+                return { ...item, quantity: newQuantity, status: newStatus };
+            }
+            return item;
+        });
+
+        updateSectorItems(editingSector.id, updatedItems);
         setEditingSector({ ...editingSector, items: updatedItems });
     };
 
@@ -1639,8 +1657,26 @@ export default function Admin() {
                                                 <span className="font-medium">{item.name}</span>
                                                 {item.code && <span className="text-xs text-secondary-500 bg-secondary-200 dark:bg-secondary-800 px-1 rounded">{item.code}</span>}
                                             </div>
-                                            <div className="flex gap-2 text-xs text-secondary-500 mt-0.5">
-                                                <span>Qtd: {item.quantity}</span>
+                                            <div className="flex gap-4 items-center text-xs text-secondary-500 mt-1">
+                                                <div className="flex items-center gap-2 bg-secondary-100 dark:bg-secondary-800 rounded px-1">
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={(e) => { e.preventDefault(); handleUpdateItemQuantity(item.id, -1); }}
+                                                        className="hover:text-red-500 p-0.5 transition-colors"
+                                                        title="Diminuir"
+                                                    >
+                                                        <Minus className="h-3 w-3" />
+                                                    </button>
+                                                    <span className="font-bold w-4 text-center">{item.quantity}</span>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={(e) => { e.preventDefault(); handleUpdateItemQuantity(item.id, 1); }}
+                                                        className="hover:text-green-500 p-0.5 transition-colors"
+                                                        title="Aumentar"
+                                                    >
+                                                        <Plus className="h-3 w-3" />
+                                                    </button>
+                                                </div>
                                                 <span className={`
                                                     ${item.status === 'Disponível' ? 'text-green-600' :
                                                         item.status === 'Indisponível' ? 'text-red-600' : 'text-yellow-600'}
