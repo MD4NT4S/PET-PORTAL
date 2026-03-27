@@ -123,27 +123,30 @@ export default function Infraestrutura() {
     };
 
     const handleExportInventory = () => {
-        // Adicionando BOM (Byte Order Mark) para o Excel reconhecer UTF-8
-        let csvContent = "\uFEFF";
-        // Usando ponto-e-vírgula que é o padrão do Excel pt-BR
-        csvContent += "Setor;Categoria;Nome do Item;Código;Quantidade;Status\n";
+        const BOM = "\uFEFF";
+        let csvContent = BOM + "Setor;Categoria;Nome do Item;Código;Quantidade;Status\r\n";
 
         sectors.forEach(sector => {
             sector.items.forEach(item => {
+                const safeSectorName = (sector.name || '').replace(/"/g, '""');
+                const safeCategory = (sector.category || '').replace(/"/g, '""');
+                const safeItemName = (item.name || '').replace(/"/g, '""');
+                const safeCode = (item.code || '').replace(/"/g, '""');
+                const safeStatus = (item.status || '').replace(/"/g, '""');
+
                 const row = [
-                    `"${sector.name}"`,
-                    `"${sector.category}"`,
-                    `"${item.name}"`,
-                    `"${item.code || ''}"`,
+                    `"${safeSectorName}"`,
+                    `"${safeCategory}"`,
+                    `"${safeItemName}"`,
+                    `"${safeCode}"`,
                     item.quantity,
-                    `"${item.status}"`
+                    `"${safeStatus}"`
                 ].join(";");
-                csvContent += row + "\n";
+                csvContent += row + "\r\n";
             });
         });
 
-        // Usando Blob em vez de encodeURI para criar o arquivo corretamente
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
         const encodedUri = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -151,28 +154,35 @@ export default function Infraestrutura() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(encodedUri);
         toast.success("Relatório de estoque baixado!");
     };
 
     const handleExportLoans = () => {
-        let csvContent = "\uFEFF";
-        csvContent += "ID;Item;Solicitante;Tipo;Quantidade;Data Cadastro;Devolução Prevista;Status\n";
+        const BOM = "\uFEFF";
+        let csvContent = BOM + "ID;Item;Solicitante;Tipo;Quantidade;Data Cadastro;Devolução Prevista;Status\r\n";
 
         loans.forEach(loan => {
+            const safeId = (loan.id || '').replace(/"/g, '""');
+            const safeItemName = (loan.itemName || '').replace(/"/g, '""');
+            const safeUserName = (loan.userName || '').replace(/"/g, '""');
+            const safeType = (loan.type || '').replace(/"/g, '""');
+            const safeStatus = (loan.status || '').replace(/"/g, '""');
+
             const row = [
-                `"${loan.id}"`,
-                `"${loan.itemName}"`,
-                `"${loan.userName}"`,
-                `"${loan.type}"`,
-                loan.quantity,
+                `"${safeId}"`,
+                `"${safeItemName}"`,
+                `"${safeUserName}"`,
+                `"${safeType}"`,
+                loan.quantity || 1,
                 `"${new Date(loan.date).toLocaleDateString()}"`,
                 `"${loan.expectedReturnDate ? new Date(loan.expectedReturnDate).toLocaleDateString() : '-'}"`,
-                `"${loan.status}"`
+                `"${safeStatus}"`
             ].join(";");
-            csvContent += row + "\n";
+            csvContent += row + "\r\n";
         });
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
         const encodedUri = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -180,6 +190,7 @@ export default function Infraestrutura() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(encodedUri);
         toast.success("Relatório de histórico baixado!");
     };
 
