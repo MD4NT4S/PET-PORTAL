@@ -1667,7 +1667,15 @@ export default function Admin() {
                                                     >
                                                         <Minus className="h-3 w-3" />
                                                     </button>
-                                                    <span className="font-bold w-4 text-center">{item.quantity}</span>
+                                                    <input 
+                                                        type="number"
+                                                        value={item.quantity === 0 ? '' : item.quantity} // Allow emptying to 0
+                                                        onChange={(e) => { 
+                                                            const val = parseInt(e.target.value) || 0; 
+                                                            handleUpdateItemQuantity(item.id, val - item.quantity); 
+                                                        }}
+                                                        className="w-10 text-center bg-transparent border border-transparent hover:border-secondary-300 dark:hover:border-secondary-700 focus:border-primary-500 rounded p-0 text-sm font-bold focus:ring-1 focus:ring-primary-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    />
                                                     <button 
                                                         type="button" 
                                                         onClick={(e) => { e.preventDefault(); handleUpdateItemQuantity(item.id, 1); }}
