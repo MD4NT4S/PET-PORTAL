@@ -18,9 +18,22 @@ interface EventForm {
 export default function Calendario() {
     const { events, members, addEvent, removeEvent, canManageCalendar, siteConfig } = useStorage();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const { register, handleSubmit, reset } = useForm<EventForm>();
+    const { register, handleSubmit, reset, setValue, watch } = useForm<EventForm>();
 
     const [currentDate, setCurrentDate] = useState(new Date());
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            const allMembers = members.filter(m => m.role === 'member').map(m => m.name);
+            setValue('responsibles', allMembers, { shouldValidate: true });
+        } else {
+            setValue('responsibles', [], { shouldValidate: true });
+        }
+    };
+
+    const selectedResponsibles = watch('responsibles') || [];
+    const memberSubList = members.filter(m => m.role === 'member');
+    const isAllSelected = memberSubList.length > 0 && selectedResponsibles.length === memberSubList.length;
 
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const startDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -298,7 +311,18 @@ export default function Calendario() {
                             Responsáveis <span className="text-red-500">*</span>
                         </label>
                         <div className="max-h-32 overflow-y-auto border border-secondary-300 dark:border-secondary-700 rounded-md p-2 bg-white dark:bg-secondary-950 space-y-1">
-                            {members.filter(m => m.role === 'member').map(member => (
+                            {memberSubList.length > 0 && (
+                                <label className="flex items-center gap-2 py-1 cursor-pointer hover:bg-secondary-50 dark:hover:bg-secondary-900 rounded px-1 border-b border-secondary-100 dark:border-secondary-800 mb-2 pb-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllSelected}
+                                        onChange={handleSelectAll}
+                                        className="rounded border-secondary-300 text-primary-600 focus:ring-primary-600 dark:border-secondary-600 dark:bg-secondary-800"
+                                    />
+                                    <span className="text-sm font-semibold text-secondary-900 dark:text-secondary-100">Marcar Todos</span>
+                                </label>
+                            )}
+                            {memberSubList.map(member => (
                                 <label key={member.id} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-secondary-50 dark:hover:bg-secondary-900 rounded px-1">
                                     <input
                                         type="checkbox"

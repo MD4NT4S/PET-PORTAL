@@ -70,7 +70,7 @@ export interface Member {
     email: string;
     password?: string; // Optional for migration or if we decide to hash later (simulated)
     photoUrl?: string;
-    role: 'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao';
+    role: 'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa';
     coordination?: string;
 }
 
@@ -137,7 +137,7 @@ interface StorageContextType {
     currentUser: string | null;
     isAdmin: boolean;
     canManageCalendar: boolean;
-    userRole: 'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | null;
+    userRole: 'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null;
     loginUser: (identifier: string, password?: string | boolean, isAdmin?: boolean) => boolean;
     logoutUser: () => void;
     addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'author'>) => void;
@@ -276,12 +276,13 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         return localStorage.getItem('pet-current-user');
     });
 
-    const [userRole, setUserRole] = useState<'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | null>(() => {
+    const [userRole, setUserRole] = useState<'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null>(() => {
         return localStorage.getItem('pet-user-role') as any || null;
     });
 
-    const isAdmin = ['admin_master', 'admin_infra', 'admin_gp'].includes(userRole || '');
-    const canManageCalendar = isAdmin || ['admin_secretaria', 'admin_divulgacao'].includes(userRole || '');
+    // Fix: Allow all admins to log in via AdminLogin
+    const isAdmin = ['admin_master', 'admin_infra', 'admin_gp', 'admin_secretaria', 'admin_divulgacao', 'admin_pesquisa'].includes(userRole || '');
+    const canManageCalendar = isAdmin || ['admin_secretaria', 'admin_divulgacao', 'admin_pesquisa'].includes(userRole || '');
 
     // --- Data Fetching ---
     const fetchData = async () => {
@@ -348,7 +349,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                     { name: 'Administrador Infra', email: 'infra@pet.com', password: 'infra123', role: 'admin_infra' },
                     { name: 'Administrador GP', email: 'gp@pet.com', password: 'gp123', role: 'admin_gp' },
                     { name: 'Administrador Secretaria', email: 'secretaria@pet.com', password: 'secretaria123', role: 'admin_secretaria' },
-                    { name: 'Administrador Divulgação', email: 'divulgacao@pet.com', password: 'divulgacao123', role: 'admin_divulgacao' }
+                    { name: 'Administrador Divulgação', email: 'divulgacao@pet.com', password: 'divulgacao123', role: 'admin_divulgacao' },
+                    { name: 'Administrador Pesquisa', email: 'pesquisa@pet.com', password: 'pesquisa123', role: 'admin_pesquisa' }
                 ];
 
                 // Check and seed defaults asynchronously
@@ -1099,7 +1101,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         if (user) {
             if (isAdminAttempt) {
                 // Must have admin role
-                const adminRoles = ['admin_master', 'admin_infra', 'admin_gp', 'admin_secretaria', 'admin_divulgacao'];
+                const adminRoles = ['admin_master', 'admin_infra', 'admin_gp', 'admin_secretaria', 'admin_divulgacao', 'admin_pesquisa'];
                 if (adminRoles.includes(user.role)) {
                     setCurrentUser(user.name);
                     setUserRole(user.role as any);

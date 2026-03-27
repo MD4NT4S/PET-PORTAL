@@ -51,7 +51,7 @@ export default function Admin() {
     const [newAdminName, setNewAdminName] = useState('');
     const [newAdminEmail, setNewAdminEmail] = useState('');
     const [newAdminPassword, setNewAdminPassword] = useState('');
-    const [newAdminRole, setNewAdminRole] = useState<'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao'>('admin_master');
+    const [newAdminRole, setNewAdminRole] = useState<'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa'>('admin_master');
 
     // Edit Member State
     const [editingMember, setEditingMember] = useState<Member | null>(null);
@@ -461,7 +461,7 @@ export default function Admin() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Painel Administrativo</h1>
                     <p className="text-secondary-500 dark:text-secondary-400">
-                        Acesso restrito à gestão do grupo. <span className="font-semibold text-primary-600">({userRole === 'admin_master' ? 'Geral' : userRole === 'admin_infra' ? 'Infraestrutura' : userRole === 'admin_gp' ? 'Gestão de Pessoas' : userRole === 'admin_secretaria' ? 'Secretaria' : userRole === 'admin_divulgacao' ? 'Divulgação' : 'Admin'})</span>
+                        Acesso restrito à gestão do grupo. <span className="font-semibold text-primary-600">({userRole === 'admin_master' ? 'Geral' : userRole === 'admin_infra' ? 'Infraestrutura' : userRole === 'admin_gp' ? 'Gestão de Pessoas' : userRole === 'admin_secretaria' ? 'Secretaria' : userRole === 'admin_divulgacao' ? 'Divulgação' : userRole === 'admin_pesquisa' ? 'Pesquisa' : 'Admin'})</span>
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -618,6 +618,7 @@ export default function Admin() {
                                         <option value="admin_gp">Gestão de Pessoas</option>
                                         <option value="admin_secretaria">Secretaria</option>
                                         <option value="admin_divulgacao">Divulgação</option>
+                                        <option value="admin_pesquisa">Pesquisa</option>
                                     </select>
                                     <Button type="submit">
                                         <Plus className="mr-2 h-4 w-4" /> Adicionar
@@ -645,7 +646,8 @@ export default function Admin() {
                                                         admin.role === 'admin_infra' ? 'Infraestrutura' :
                                                             admin.role === 'admin_gp' ? 'Gestão de Pessoas' :
                                                                 admin.role === 'admin_secretaria' ? 'Secretaria' :
-                                                                    admin.role === 'admin_divulgacao' ? 'Divulgação' : admin.role}
+                                                                    admin.role === 'admin_divulgacao' ? 'Divulgação' : 
+                                                                        admin.role === 'admin_pesquisa' ? 'Pesquisa' : admin.role}
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <Button variant="ghost" size="sm" onClick={() => openEditMember(admin)}>
