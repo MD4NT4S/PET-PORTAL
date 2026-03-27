@@ -322,7 +322,7 @@ export default function Infraestrutura() {
                             let gridAreaClass = '';
 
                             // Top 3 rows (Standard, 2 slots high each) check
-                            if (index === 0) gridAreaClass = 'col-start-1 row-start-1 row-span-2';
+                            if (index === 0) gridAreaClass = 'col-start-1 row-start-1 row-span-2 w-[calc(50%-8px)] justify-self-start';
                             else if (index === 1) gridAreaClass = 'col-start-2 row-start-1 row-span-2';
                             else if (index === 2) gridAreaClass = 'col-start-1 row-start-3 row-span-2';
                             else if (index === 3) gridAreaClass = 'col-start-2 row-start-3 row-span-2';
@@ -339,6 +339,9 @@ export default function Infraestrutura() {
                             // Right Column (2 items, 2.5 and 1.5 equivalent = 5 and 3 slots)
                             else if (index === 10) gridAreaClass = 'col-start-2 row-start-7 row-span-5';
                             else if (index === 11) gridAreaClass = 'col-start-2 row-start-12 row-span-3';
+                            
+                            // Nova Categoria 13 dividindo o espaço com a Categoria 1 (coluna 1, linha 1)
+                            else if (index === 12) gridAreaClass = 'col-start-1 row-start-1 row-span-2 w-[calc(50%-8px)] justify-self-end';
 
                             return (
                                 <div
