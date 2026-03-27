@@ -322,23 +322,24 @@ export default function Infraestrutura() {
                             let gridAreaClass = '';
 
                             // Top 3 rows (Standard, 2 slots high each) check
-                            if (index === 0) gridAreaClass = 'col-start-1 row-start-1 row-span-2';
-                            else if (index === 1) gridAreaClass = 'col-start-2 row-start-1 row-span-2';
-                            else if (index === 2) gridAreaClass = 'col-start-1 row-start-3 row-span-2';
-                            else if (index === 3) gridAreaClass = 'col-start-2 row-start-3 row-span-2';
-                            else if (index === 4) gridAreaClass = 'col-start-1 row-start-5 row-span-2';
-                            else if (index === 5) gridAreaClass = 'col-start-2 row-start-5 row-span-2';
+                            if (index === 0) gridAreaClass = 'col-start-1 row-start-1 row-span-1';
+                            else if (index === 1) gridAreaClass = 'col-start-1 row-start-2 row-span-1';
+                            else if (index === 2) gridAreaClass = 'col-start-2 row-start-1 row-span-2';
+                            else if (index === 3) gridAreaClass = 'col-start-1 row-start-3 row-span-2';
+                            else if (index === 4) gridAreaClass = 'col-start-2 row-start-3 row-span-2';
+                            else if (index === 5) gridAreaClass = 'col-start-1 row-start-5 row-span-2';
+                            else if (index === 6) gridAreaClass = 'col-start-2 row-start-5 row-span-2';
 
                             // Bottom Section (Complex)
                             // Left Column (4 items, 2 slots high each)
-                            else if (index === 6) gridAreaClass = 'col-start-1 row-start-7 row-span-2';
-                            else if (index === 7) gridAreaClass = 'col-start-1 row-start-9 row-span-2';
-                            else if (index === 8) gridAreaClass = 'col-start-1 row-start-11 row-span-2';
-                            else if (index === 9) gridAreaClass = 'col-start-1 row-start-13 row-span-2';
+                            else if (index === 7) gridAreaClass = 'col-start-1 row-start-7 row-span-2';
+                            else if (index === 8) gridAreaClass = 'col-start-1 row-start-9 row-span-2';
+                            else if (index === 9) gridAreaClass = 'col-start-1 row-start-11 row-span-2';
+                            else if (index === 10) gridAreaClass = 'col-start-1 row-start-13 row-span-2';
 
                             // Right Column (2 items, 2.5 and 1.5 equivalent = 5 and 3 slots)
-                            else if (index === 10) gridAreaClass = 'col-start-2 row-start-7 row-span-5';
-                            else if (index === 11) gridAreaClass = 'col-start-2 row-start-12 row-span-3';
+                            else if (index === 11) gridAreaClass = 'col-start-2 row-start-7 row-span-5';
+                            else if (index === 12) gridAreaClass = 'col-start-2 row-start-12 row-span-3';
 
                             return (
                                 <div
