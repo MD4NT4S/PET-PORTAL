@@ -58,6 +58,7 @@ export default function Admin() {
     const [editName, setEditName] = useState('');
     const [editEmail, setEditEmail] = useState('');
     const [editPassword, setEditPassword] = useState('');
+    const [editCoordination, setEditCoordination] = useState('');
 
     // Ombudsman State
     const [resolvingOmbudsman, setResolvingOmbudsman] = useState<Ombudsman | null>(null);
@@ -250,6 +251,7 @@ export default function Admin() {
         setEditName(member.name);
         setEditEmail(member.email);
         setEditPassword(member.password || '');
+        setEditCoordination(member.coordination || '');
     };
 
     const handleUpdateMember = (e: React.FormEvent) => {
@@ -258,7 +260,8 @@ export default function Admin() {
             updateMember(editingMember.id, {
                 name: editName,
                 email: editEmail,
-                password: editPassword
+                password: editPassword,
+                coordination: editCoordination || undefined
             });
             setEditingMember(null);
             toast.success('Membro atualizado com sucesso!');
@@ -541,7 +544,14 @@ export default function Admin() {
                                     members.filter(m => m.role === 'member').map(member => (
                                         <div key={member.id} className="flex justify-between items-center p-3 rounded-lg bg-secondary-50 dark:bg-secondary-900 border border-secondary-200 dark:border-secondary-800">
                                             <div>
-                                                <p className="font-medium">{member.name}</p>
+                                                <p className="font-medium flex items-center gap-2">
+                                                    {member.name}
+                                                    {member.coordination && (
+                                                        <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-300 border border-primary-200 dark:border-primary-800/50">
+                                                            {member.coordination}
+                                                        </span>
+                                                    )}
+                                                </p>
                                                 <p className="text-xs text-secondary-500">{member.email}</p>
                                             </div>
                                             <div className="flex gap-1">
@@ -1565,6 +1575,26 @@ export default function Admin() {
                             placeholder="Nova senha"
                         />
                     </div>
+                    {(userRole === 'admin_master' || userRole === 'admin_gp') && (
+                        <div>
+                            <label className="block text-sm font-medium mb-1 dark:text-secondary-200">Coordenadoria</label>
+                            <select
+                                value={editCoordination}
+                                onChange={(e) => setEditCoordination(e.target.value)}
+                                className="flex h-10 w-full rounded-md border border-secondary-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:border-secondary-800 dark:bg-secondary-950 dark:placeholder:text-secondary-400"
+                            >
+                                <option value="">Sem Coordenadoria</option>
+                                <option value="Infraestrutura">Infraestrutura</option>
+                                <option value="Gestão de Pessoas">Gestão de Pessoas</option>
+                                <option value="Secretaria">Secretaria</option>
+                                <option value="Divulgação">Divulgação</option>
+                                <option value="Tesouraria">Tesouraria</option>
+                                <option value="Ensino">Ensino</option>
+                                <option value="Pesquisa">Pesquisa</option>
+                                <option value="Extensão">Extensão</option>
+                            </select>
+                        </div>
+                    )}
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="ghost" onClick={() => setEditingMember(null)}>
                             Cancelar

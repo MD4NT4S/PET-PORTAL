@@ -71,6 +71,7 @@ export interface Member {
     password?: string; // Optional for migration or if we decide to hash later (simulated)
     photoUrl?: string;
     role: 'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao';
+    coordination?: string;
 }
 
 // ... existing interfaces
