@@ -547,7 +547,7 @@ export default function Admin() {
                                                 <p className="font-medium flex items-center gap-2">
                                                     {member.name}
                                                     {member.coordination && (
-                                                        <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-300 border border-primary-200 dark:border-primary-800/50">
+                                                        <span className={`text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full border ${member.coordination === 'Tutor do Grupo' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800/50' : 'bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-300 border-primary-200 dark:border-primary-800/50'}`}>
                                                             {member.coordination}
                                                         </span>
                                                     )}
@@ -1592,6 +1592,7 @@ export default function Admin() {
                                 <option value="Ensino">Ensino</option>
                                 <option value="Pesquisa">Pesquisa</option>
                                 <option value="Extensão">Extensão</option>
+                                <option value="Tutor do Grupo">Tutor do Grupo</option>
                             </select>
                         </div>
                     )}
