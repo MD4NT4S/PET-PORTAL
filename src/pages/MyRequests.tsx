@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { useStorage } from '../context/StorageContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Ticket, Users, FileText, Package, Camera, CheckCircle2 } from 'lucide-react';
+import { Ticket, Users, FileText, Package, Camera, CheckCircle2, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
 export default function MyRequests() {
-    const { tickets, evaluations, currentUser, loans, returnLoan } = useStorage();
-    const [activeTab, setActiveTab] = useState<'tickets' | 'evaluations' | 'loans'>('tickets');
+    const { tickets, evaluations, currentUser, loans, returnLoan, ombudsman } = useStorage();
+    const [activeTab, setActiveTab] = useState<'tickets' | 'evaluations' | 'loans' | 'ombudsman'>('tickets');
     const [selectedLoanReturn, setSelectedLoanReturn] = useState<string | null>(null);
     const [returnPhoto, setReturnPhoto] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -19,6 +19,7 @@ export default function MyRequests() {
     const myTickets = tickets.filter(t => t.author === currentUser);
     const myEvaluations = evaluations.filter(e => e.author === currentUser);
     const myLoans = loans.filter(l => l.userName === currentUser && (l.status === 'Ativo' || l.status === 'Aguardando Aprovação' || l.status === 'Atrasado'));
+    const myOmbudsman = ombudsman.filter(o => o.identification === currentUser);
 
     const handleReturnLoan = async () => {
         if (!selectedLoanReturn || !returnPhoto) {
@@ -62,7 +63,7 @@ export default function MyRequests() {
                 </p>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
                 <Button
                     variant={activeTab === 'tickets' ? 'primary' : 'outline'}
                     onClick={() => setActiveTab('tickets')}
@@ -80,6 +81,12 @@ export default function MyRequests() {
                     onClick={() => setActiveTab('loans')}
                 >
                     <Package className="mr-2 h-4 w-4" /> Empréstimos
+                </Button>
+                <Button
+                    variant={activeTab === 'ombudsman' ? 'primary' : 'outline'}
+                    onClick={() => setActiveTab('ombudsman')}
+                >
+                    <MessageSquare className="mr-2 h-4 w-4" /> Ouvidoria
                 </Button>
             </div>
 
@@ -230,6 +237,50 @@ export default function MyRequests() {
                                 <p className="text-secondary-500 mb-6">Você não tem itens pendentes de devolução.</p>
                                 <Link to="/infraestrutura">
                                     <Button>Solicitar Material</Button>
+                                </Link>
+                            </CardContent>
+                        </Card>
+                    )
+                )}
+                {activeTab === 'ombudsman' && (
+                    myOmbudsman.length > 0 ? (
+                        myOmbudsman.map(item => (
+                            <Card key={item.id}>
+                                <CardContent className="pt-6">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`px-2 py-0.5 rounded text-xs font-semibold
+                                                    ${item.status === 'Atendido' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                        : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>
+                                                    {item.status || 'Pendente'}
+                                                </span>
+                                                <span className="text-xs text-secondary-500">{new Date(item.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <h3 className="font-semibold text-lg">{item.type}</h3>
+                                            <p className="text-secondary-600 dark:text-secondary-400 text-sm mt-1 whitespace-pre-wrap">{item.text}</p>
+                                        </div>
+                                    </div>
+
+                                    {item.response && (
+                                        <div className="mt-4 pt-4 border-t border-secondary-100 dark:border-secondary-800 w-full col-span-2">
+                                            <p className="text-xs font-bold text-secondary-500 uppercase mb-1">Resposta da Ouvidoria</p>
+                                            <p className="text-sm text-secondary-700 dark:text-secondary-300 bg-secondary-50 dark:bg-secondary-900 p-3 rounded-lg border border-secondary-200 dark:border-secondary-800 whitespace-pre-wrap">
+                                                {item.response}
+                                            </p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        ))
+                    ) : (
+                        <Card className="text-center py-12">
+                            <CardContent>
+                                <MessageSquare className="h-12 w-12 mx-auto text-secondary-300 mb-4" />
+                                <h3 className="text-lg font-medium text-secondary-900 dark:text-secondary-100">Nenhuma manifestação encontrada</h3>
+                                <p className="text-secondary-500 mb-6">Você não enviou nenhuma manifestação na ouvidoria (ou enviou anonimamente).</p>
+                                <Link to="/ouvidoria">
+                                    <Button>Nova Manifestação</Button>
                                 </Link>
                             </CardContent>
                         </Card>
