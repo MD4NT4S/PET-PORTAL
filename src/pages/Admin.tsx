@@ -3,7 +3,7 @@ import { useStorage } from '../context/StorageContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Table as TableIcon, LayoutTemplate, LogOut, Users, Trash2, Plus, Minus, Pencil, Check, X, Box, Package, ShieldAlert, Megaphone } from 'lucide-react';
+import { Download, Table as TableIcon, LayoutTemplate, LogOut, Users, Trash2, Plus, Minus, Pencil, Check, X, Box, Package, ShieldAlert, Megaphone, Shield } from 'lucide-react';
 
 import { toast } from 'sonner';
 import AdminLogin from '../components/admin/AdminLogin';
@@ -23,6 +23,7 @@ export default function Admin() {
         { id: 'avaliacoes', label: 'Autoavaliações', roles: ['admin_master', 'admin_gp'] },
         { id: 'tickets', label: 'Tickets', roles: ['admin_master', 'admin_gp', 'admin_infra'] },
         { id: 'membros', label: 'Membros', icon: Users, roles: ['admin_master', 'admin_gp'] },
+        { id: 'admins', label: 'Administradores', icon: Shield, roles: ['admin_master'] },
         { id: 'infraestrutura', label: 'Infraestrutura', icon: Box, roles: ['admin_master', 'admin_infra'] },
         { id: 'cms', label: 'Gerenciar Site', icon: LayoutTemplate, roles: ['admin_master', 'admin_gp'] },
         { id: 'avisos', label: 'Avisos', icon: Megaphone, roles: ['admin_master', 'admin_gp', 'admin_secretaria', 'admin_divulgacao'] }
