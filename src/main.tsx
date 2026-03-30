@@ -54,7 +54,7 @@ try {
                 </Route>
               </Routes>
             </React.Suspense>
-            <Toaster richColors position="top-right" />
+            <Toaster richColors position="bottom-center" duration={2500} closeButton />
           </HashRouter>
         </StorageProvider>
       </ErrorBoundary>
