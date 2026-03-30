@@ -162,17 +162,18 @@ export function MainLayout() {
                         >
                             {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                         </Button>
-                        <div
-                            className="h-8 w-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-700 dark:text-primary-400 font-medium text-sm cursor-pointer hover:ring-2 hover:ring-primary-500 transition-all overflow-hidden"
+                        <button
+                            type="button"
+                            className="h-8 w-8 p-0 border-none rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-700 dark:text-primary-400 font-medium text-sm hover:ring-2 hover:ring-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all overflow-hidden"
                             onClick={() => setIsProfileOpen(true)}
                             title="Editar Perfil"
                         >
                             {currentMember?.photoUrl ? (
-                                <img src={currentMember.photoUrl} alt="Profile" className="h-full w-full object-cover" />
+                                <img src={currentMember.photoUrl} alt="Profile" className="h-full w-full object-cover pointer-events-none" />
                             ) : (
                                 currentUser ? currentUser.charAt(0).toUpperCase() : '?'
                             )}
-                        </div>
+                        </button>
                     </div>
                 </header>
 
