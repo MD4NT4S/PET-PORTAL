@@ -3,12 +3,45 @@ import { useStorage } from '../../context/StorageContext';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Camera, Upload, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Camera, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ProfileSettingsProps {
     isOpen: boolean;
     onClose: () => void;
+}
+
+// Redimensiona a imagem para no máximo maxSize x maxSize antes de converter para base64
+function resizeImage(file: File, maxSize = 200): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            img.src = e.target?.result as string;
+        };
+        reader.onerror = reject;
+
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let { width, height } = img;
+
+            if (width > height) {
+                if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+            } else {
+                if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        img.onerror = reject;
+
+        reader.readAsDataURL(file);
+    });
 }
 
 export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
@@ -19,9 +52,10 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
     const [password, setPassword] = useState(currentMember?.password || '');
     const [photoUrl, setPhotoUrl] = useState(currentMember?.photoUrl || '');
     const [showPassword, setShowPassword] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Update local state when currentMember changes
+    // Atualiza estado local quando o membro muda (ex: após recarregar dados)
     useEffect(() => {
         if (currentMember) {
             setName(currentMember.name);
@@ -29,31 +63,42 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
             setPassword(currentMember.password || '');
             setPhotoUrl(currentMember.photoUrl || '');
         }
-    }, [currentMember]);
+    }, [currentMember?.id, isOpen]); // recarrega também quando o modal abre
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!currentMember) return;
 
-        updateMember(currentMember.id, {
-            name,
-            email,
-            password,
-            photoUrl
-        });
-
-        onClose();
+        setIsSaving(true);
+        try {
+            await updateMember(currentMember.id, {
+                name,
+                email,
+                password,
+                photoUrl
+            });
+            onClose();
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPhotoUrl(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+
+        try {
+            toast.loading('Processando imagem...');
+            const resized = await resizeImage(file, 200);
+            setPhotoUrl(resized);
+            toast.dismiss();
+        } catch {
+            toast.dismiss();
+            toast.error('Erro ao processar imagem.');
         }
+
+        // Limpa o input para permitir selecionar o mesmo arquivo novamente
+        e.target.value = '';
     };
 
     if (!currentMember) return null;
@@ -119,8 +164,10 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                    <Button type="submit">Salvar</Button>
+                    <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}>Cancelar</Button>
+                    <Button type="submit" disabled={isSaving}>
+                        {isSaving ? 'Salvando...' : 'Salvar'}
+                    </Button>
                 </div>
             </form>
         </Modal>
