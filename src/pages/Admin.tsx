@@ -534,7 +534,7 @@ export default function Admin() {
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Membros Ativos ({members.length})</CardTitle>
+                            <CardTitle>Membros Ativos ({members.filter(m => m.role === 'member').length})</CardTitle>
                             <CardDescription>Lista de integrantes cadastrados.</CardDescription>
                         </CardHeader>
                         <CardContent>
