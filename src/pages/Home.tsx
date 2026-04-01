@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useStorage } from '../context/StorageContext';
-import { ArrowRight, MessageSquare, UserCheck } from 'lucide-react';
+import { ArrowRight, MessageSquare, UserCheck, BookOpen, Lightbulb, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PhotoWall from '../components/PhotoWall';
 
@@ -66,6 +66,45 @@ export default function Home() {
                     <img src="/logo-white.png" alt="PET Logo" className="w-80 h-80 md:w-96 md:h-96 object-contain" />
                 </div>
             </section>
+
+            {/* Pillars Section */}
+            <div className="grid gap-6 md:grid-cols-3">
+                <Card className="border-t-4 border-t-blue-500 hover:shadow-md transition-shadow dark:bg-secondary-900 border-x-secondary-200 border-b-secondary-200 dark:border-x-secondary-800 dark:border-b-secondary-800">
+                    <CardHeader className="pb-3">
+                        <BookOpen className="h-8 w-8 text-blue-500 mb-2" />
+                        <CardTitle className="text-xl">{siteConfig.pillars.teaching.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-secondary-600 dark:text-secondary-400">
+                            {siteConfig.pillars.teaching.description}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-t-4 border-t-purple-500 hover:shadow-md transition-shadow dark:bg-secondary-900 border-x-secondary-200 border-b-secondary-200 dark:border-x-secondary-800 dark:border-b-secondary-800">
+                    <CardHeader className="pb-3">
+                        <Lightbulb className="h-8 w-8 text-purple-500 mb-2" />
+                        <CardTitle className="text-xl">{siteConfig.pillars.research.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-secondary-600 dark:text-secondary-400">
+                            {siteConfig.pillars.research.description}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-t-4 border-t-green-500 hover:shadow-md transition-shadow dark:bg-secondary-900 border-x-secondary-200 border-b-secondary-200 dark:border-x-secondary-800 dark:border-b-secondary-800">
+                    <CardHeader className="pb-3">
+                        <Users className="h-8 w-8 text-green-500 mb-2" />
+                        <CardTitle className="text-xl">{siteConfig.pillars.extension.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-secondary-600 dark:text-secondary-400">
+                            {siteConfig.pillars.extension.description}
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Photo Wall Section */}
             <PhotoWall />
