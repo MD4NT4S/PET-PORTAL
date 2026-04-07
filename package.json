@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "testdb": "node verify_supabase.js"
   },
   "homepage": "https://petcivil.site",
   "dependencies": {

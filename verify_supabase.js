@@ -15,20 +15,26 @@ async function testConnection() {
     console.log('URL:', supabaseUrl)
 
     try {
-        const { data, error } = await supabase.from('members').select('count', { count: 'exact', head: true })
+        const newLoan = {
+            item_id: '00000000-0000-0000-0000-000000000000', // Mock UUID
+            item_name: 'Test',
+            user_id: 'Test',
+            user_name: 'Test',
+            type: 'Empréstimo Temporário',
+            quantity: 1,
+            status: 'Ativo'
+        };
+        const { data, error } = await supabase.from('loans').insert(newLoan).select().single()
 
         if (error) {
-            console.error('Connection Failed:', error.message, error.details, error.hint)
+            console.error('Insert Failed:', error.message, error.details, error.hint)
         } else {
-            console.log('Connection Successful! Members count (header):', data)
-
-            const { data: members, error: memberError } = await supabase.from('members').select('name').limit(5)
-            if (memberError) console.error('Member fetch failed:', memberError.message)
-            else console.log('Successfully fetched members:', members)
+            console.log('Insert Successful!', data)
+            // Cleanup
+            await supabase.from('loans').delete().eq('id', data.id);
         }
     } catch (err) {
         console.error('Unexpected error:', err)
     }
 }
-
 testConnection()

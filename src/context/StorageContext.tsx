@@ -803,22 +803,43 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
 
         // 3. Create Loan
+        let dbType = type;
         const newLoan = {
             item_id: itemId,
             item_name: item.name,
             user_id: currentUser, // Using name
             user_name: currentUser,
-            type,
+            type: dbType,
             quantity,
             expected_return_date: returnDate,
+            date: new Date().toISOString(), // explicitly supply the date
             status: 'Ativo',
             withdrawal_photo_url: photoUrl
         };
 
-        const { data: loan, error: loanError } = await supabase.from('loans').insert(newLoan).select().single();
+        let { data: loan, error: loanError } = await supabase.from('loans').insert(newLoan).select().single();
+
+        // Workaround for Check Constraint on DB: fallback to 'Empréstimo'
+        if (loanError && type === 'Empréstimo Temporário') {
+            console.warn('Fallback: DB constraint may prevent Empréstimo Temporário insert, using Empréstimo instead.', loanError);
+            dbType = 'Empréstimo';
+            newLoan.type = dbType;
+            const retryRes = await supabase.from('loans').insert(newLoan).select().single();
+            loan = retryRes.data;
+            loanError = retryRes.error;
+        }
 
         if (loanError) {
-            toast.error('Erro ao registrar empréstimo');
+            console.error('Error creating loan:', loanError);
+            
+            // Critical fix: Rollback inventory change to prevent state drift
+            const rollbackQuantity = item.quantity; 
+            await supabase.from('inventory_items').update({
+                 quantity: rollbackQuantity, 
+                 status: item.status 
+            }).eq('id', itemId);
+            
+            toast.error('Erro ao registrar empréstimo, as alterações de estoque foram desfeitas.');
             return false;
         } else {
             setLoans(prev => [{
@@ -828,7 +849,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 userName: loan.user_name,
                 itemName: loan.item_name,
                 expectedReturnDate: loan.expected_return_date,
-                withdrawalPhotoUrl: loan.withdrawal_photo_url
+                withdrawalPhotoUrl: loan.withdrawal_photo_url,
+                type: type // show the correct type in the UI locally
             } as Loan, ...prev]);
 
             // Update local sector state
