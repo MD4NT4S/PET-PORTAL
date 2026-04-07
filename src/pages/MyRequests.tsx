@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
 export default function MyRequests() {
-    const { tickets, evaluations, currentUser, loans, returnLoan, ombudsman } = useStorage();
+    const { tickets, evaluations, currentUser, loans, returnLoan, ombudsman, sectors } = useStorage();
     const [activeTab, setActiveTab] = useState<'tickets' | 'evaluations' | 'loans' | 'ombudsman'>('tickets');
     const [selectedLoanReturn, setSelectedLoanReturn] = useState<string | null>(null);
     const [returnPhoto, setReturnPhoto] = useState<File | null>(null);
@@ -20,6 +20,14 @@ export default function MyRequests() {
     const myEvaluations = evaluations.filter(e => e.author === currentUser);
     const myLoans = loans.filter(l => l.userName === currentUser && (l.status === 'Ativo' || l.status === 'Aguardando Aprovação' || l.status === 'Atrasado'));
     const myOmbudsman = ombudsman.filter(o => o.identification === currentUser);
+
+    const getLoanItemCode = (itemId: string) => {
+        for (const sector of sectors) {
+            const item = sector.items.find(i => i.id === itemId);
+            if (item && item.code) return item.code;
+        }
+        return '';
+    };
 
     const handleReturnLoan = async () => {
         if (!selectedLoanReturn || !returnPhoto) {
@@ -180,7 +188,9 @@ export default function MyRequests() {
                 )}
                 {activeTab === 'loans' && (
                     myLoans.length > 0 ? (
-                        myLoans.map(loan => (
+                        myLoans.map(loan => {
+                            const code = getLoanItemCode(loan.itemId);
+                            return (
                             <Card key={loan.id}>
                                 <CardContent className="pt-6">
                                     <div className="flex justify-between items-start">
@@ -194,7 +204,10 @@ export default function MyRequests() {
                                                 </span>
                                                 <span className="text-xs text-secondary-500">{new Date(loan.date).toLocaleDateString()}</span>
                                             </div>
-                                            <h3 className="font-semibold text-lg">{loan.itemName}</h3>
+                                            <h3 className="font-semibold text-lg">
+                                                {loan.itemName}
+                                                {code && <span className="ml-2 text-xs text-secondary-500 bg-secondary-200 dark:bg-secondary-800 px-1 rounded font-normal">Cód: {code}</span>}
+                                            </h3>
                                             <p className="text-secondary-600 dark:text-secondary-400 text-sm mt-1">
                                                 Quantidade: {loan.quantity} • Tipo: {loan.type}
                                             </p>
@@ -228,7 +241,8 @@ export default function MyRequests() {
                                     )}
                                 </CardContent>
                             </Card>
-                        ))
+                            )
+                        })
                     ) : (
                         <Card className="text-center py-12">
                             <CardContent>
