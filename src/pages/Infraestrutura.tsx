@@ -298,7 +298,7 @@ export default function Infraestrutura() {
                 )}
             </div>
 
-            <div className="flex justify-center">
+            <div className="flex flex-col lg:flex-row justify-center items-end gap-8 w-full max-w-6xl mx-auto pb-4">
                 {/* Cabinet Simulation Container */}
                 <div className="relative bg-[#5D4037] p-4 rounded-lg shadow-2xl border-4 border-[#3E2723] max-w-4xl w-full">
                     {/* Cabinet Header/Top */}
@@ -309,7 +309,7 @@ export default function Infraestrutura() {
                         className="grid grid-cols-2 gap-4 bg-[#3E2723] p-4 rounded border-2 border-[#5D4037]"
                         style={{ gridTemplateRows: 'repeat(14, minmax(40px, 1fr))' }}
                     >
-                        {sectors.map((sector, index) => {
+                        {sectors.slice(0, 13).map((sector, index) => {
                             // Calculate Grid Position based on Index
                             let gridAreaClass = '';
 
@@ -378,6 +378,64 @@ export default function Infraestrutura() {
                     {/* Cabinet Footer/Bottom */}
                     <div className="absolute -bottom-3 left-0 right-0 h-4 bg-[#4E342E] rounded-b-lg mx-2" />
                 </div>
+
+                {/* Organizer Box (Index 13) */}
+                {sectors[13] && (
+                    <div className="flex-shrink-0 w-full lg:w-72 mt-8 lg:mt-0 relative group perspective-1000">
+                        <div
+                            draggable={isAdmin}
+                            onDragStart={() => handleDragStart(13)}
+                            onDragOver={(e) => handleDragOver(e, 13)}
+                            onDrop={(e) => handleDrop(e, 13)}
+                            onClick={() => setSelectedSector(sectors[13])}
+                            className={`relative bg-gradient-to-b from-white/60 to-white/30 dark:from-secondary-800/60 dark:to-secondary-800/30 backdrop-blur-md border-2 border-white/50 dark:border-secondary-600 rounded-b-xl rounded-t-sm shadow-[0_10px_30px_rgba(0,0,0,0.1),inset_0_0_20px_rgba(255,255,255,0.4)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3),inset_0_0_20px_rgba(255,255,255,0.1)] p-6 min-h-[200px] flex flex-col items-center justify-center transition-all hover:shadow-[0_15px_40px_rgba(0,0,0,0.15),inset_0_0_20px_rgba(255,255,255,0.6)] ${isAdmin ? 'cursor-move' : 'cursor-pointer'} ${draggedIndex === 13 ? 'opacity-50' : ''}`}
+                        >
+                            {/* Plastic Box Lid overlay effect */}
+                            <div className="absolute -top-6 left-0 right-0 h-8 bg-gradient-to-b from-white/90 to-white/70 dark:from-secondary-700/90 dark:to-secondary-600/70 rounded-t-xl border-x-2 border-t-2 border-white/60 dark:border-secondary-500 shadow-sm flex items-center justify-center group-hover:-translate-y-1 transition-transform origin-bottom z-10">
+                                {/* Box Handle Indentation */}
+                                <div className="w-16 h-2 bg-black/10 dark:bg-black/20 rounded-full" />
+                            </div>
+                            
+                            {/* Front Lip / Ridge of the box */}
+                            <div className="absolute top-0 left-0 right-0 h-3 bg-white/40 dark:bg-secondary-500/40 border-b border-white/30 dark:border-secondary-500/30"></div>
+
+                            {/* Internal shadow for depth */}
+                            <div className="absolute inset-x-2 inset-y-4 rounded-lg shadow-[inset_0_4px_15px_rgba(0,0,0,0.05)] pointer-events-none"></div>
+
+                            {/* Label */}
+                            <div className="z-10 text-center relative p-3 bg-white/80 dark:bg-secondary-900/80 rounded-lg shadow-sm border border-secondary-100 dark:border-secondary-800 backdrop-blur-sm transform transition-transform group-hover:scale-105 mt-2">
+                                <span className="block text-secondary-900 dark:text-secondary-100 font-bold text-lg">{sectors[13].name}</span>
+                                <span className="block text-primary-600 dark:text-primary-400 font-medium text-[10px] uppercase tracking-wider">{sectors[13].category}</span>
+                            </div>
+
+                            {/* Drag Handle (Admin Only) */}
+                            {isAdmin && (
+                                <div className="absolute top-4 left-4 opacity-60 group-hover:opacity-100 transition-opacity z-20">
+                                    <GripVertical className="text-secondary-600 dark:text-secondary-400 h-5 w-5" />
+                                </div>
+                            )}
+
+                            {/* Hover Info Icon */}
+                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                <Info className="text-secondary-600 dark:text-secondary-400 h-5 w-5" />
+                            </div>
+
+                            {/* Item Count Badge */}
+                            <div className="absolute bottom-4 right-4 bg-primary-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm font-medium z-20">
+                                {sectors[13].items.length} itens
+                            </div>
+                            
+                            {/* Semi-transparent items illustration inside the box */}
+                            {sectors[13].items.length > 0 && (
+                                <div className="absolute bottom-2 left-6 right-8 h-1/3 opacity-20 dark:opacity-30 flex items-end gap-1 overflow-hidden pointer-events-none">
+                                    {Array.from({ length: Math.min(sectors[13].items.length, 5) }).map((_, i) => (
+                                        <div key={i} className={`w-8 h-${['12', '16', '10', '14', '8'][i % 5]} bg-secondary-600 dark:bg-secondary-300 rounded-t-sm rotate-${[-6, 12, -2, 8, -10][i % 5]}`}></div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Sector Details Modal */}
