@@ -318,6 +318,7 @@ export default function MyRequests() {
                             <input
                                 type="file"
                                 accept="image/*"
+                                capture="environment"
                                 onChange={(e) => setReturnPhoto(e.target.files?.[0] || null)}
                                 className="hidden"
                                 id="return-photo-upload"

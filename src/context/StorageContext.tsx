@@ -813,7 +813,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             quantity,
             expected_return_date: returnDate,
             date: new Date().toISOString(), // explicitly supply the date
-            status: 'Ativo',
+            status: type === 'Uso Contínuo' ? 'Devolvido' : 'Ativo', // Automatically mark as Devolvido so it doesn't need a return
             withdrawal_photo_url: photoUrl
         };
 
