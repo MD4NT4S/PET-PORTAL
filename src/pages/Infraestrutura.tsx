@@ -160,7 +160,10 @@ export default function Infraestrutura() {
             const safeItemName = (loan.itemName || '').replace(/"/g, '""');
             const safeUserName = (loan.userName || '').replace(/"/g, '""');
             const safeType = (loan.type || '').replace(/"/g, '""');
-            const safeStatus = (loan.status || '').replace(/"/g, '""');
+            
+            let displayStatus: string = loan.status || '';
+            if (loan.type === 'Uso Contínuo') displayStatus = 'Retirado';
+            const safeStatus = displayStatus.replace(/"/g, '""');
 
             const row = [
                 `"${safeId}"`,
