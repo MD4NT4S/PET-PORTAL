@@ -20,6 +20,7 @@ export default function Infraestrutura() {
     const [loanDays, setLoanDays] = useState<number | ''>(7);
     const [loanPhoto, setLoanPhoto] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [loanType, setLoanType] = useState<'Empréstimo' | 'Empréstimo Temporário' | 'Uso Contínuo'>('Empréstimo');
 
     const isAdmin = userRole === 'admin_master' || userRole === 'admin_infra';
 
@@ -110,6 +111,7 @@ export default function Infraestrutura() {
                 setLoanQuantity(1);
                 setLoanDays(7);
                 setLoanPhoto(null);
+                setLoanType('Empréstimo');
             }
             setIsUploading(false);
         }
@@ -534,7 +536,34 @@ export default function Infraestrutura() {
                         <p className="text-xs text-secondary-500 mt-1">Disponível em estoque: {selectedItemForLoan?.quantity}</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                        <label className="text-sm font-medium">Tipo de Solicitação</label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button
+                                onClick={() => setLoanType('Empréstimo')}
+                                className={`p-3 rounded-lg border text-left transition-all ${loanType === 'Empréstimo' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 ring-2 ring-primary-500/20' : 'border-secondary-200 dark:border-secondary-800 hover:bg-secondary-50 dark:hover:bg-secondary-900'}`}
+                            >
+                                <div className="font-semibold text-primary-700 dark:text-primary-400">Empréstimo</div>
+                                <div className="text-[10px] text-secondary-500 mt-1">Devolução padrão</div>
+                            </button>
+                            <button
+                                onClick={() => setLoanType('Empréstimo Temporário')}
+                                className={`p-3 rounded-lg border text-left transition-all ${loanType === 'Empréstimo Temporário' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 ring-2 ring-yellow-500/20' : 'border-secondary-200 dark:border-secondary-800 hover:bg-secondary-50 dark:hover:bg-secondary-900'}`}
+                            >
+                                <div className="font-semibold text-yellow-700 dark:text-yellow-400">Temporário</div>
+                                <div className="text-[10px] text-secondary-500 mt-1">Uso no mesmo dia</div>
+                            </button>
+                            <button
+                                onClick={() => setLoanType('Uso Contínuo')}
+                                className={`p-3 rounded-lg border text-left transition-all ${loanType === 'Uso Contínuo' ? 'border-secondary-500 bg-secondary-100 dark:bg-secondary-800 ring-2 ring-secondary-500/20' : 'border-secondary-200 dark:border-secondary-800 hover:bg-secondary-50 dark:hover:bg-secondary-900'}`}
+                            >
+                                <div className="font-semibold text-secondary-800 dark:text-secondary-200">Retirada</div>
+                                <div className="text-[10px] text-secondary-500 mt-1">Sem devolução</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Input
                                 label="Quantidade"
@@ -549,22 +578,24 @@ export default function Infraestrutura() {
                                 }}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Input
-                                label="Devolver em (dias)"
-                                type="number"
-                                min={1}
-                                value={loanDays}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === '') setLoanDays('');
-                                    else setLoanDays(Math.max(1, parseInt(val)));
-                                }}
-                            />
-                        </div>
+                        {loanType === 'Empréstimo' && (
+                            <div className="space-y-2">
+                                <Input
+                                    label="Devolver em (dias)"
+                                    type="number"
+                                    min={1}
+                                    value={loanDays}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '') setLoanDays('');
+                                        else setLoanDays(Math.max(1, parseInt(val)));
+                                    }}
+                                />
+                            </div>
+                        )}
                     </div>
 
-                    {typeof loanDays === 'number' && loanDays > 0 && (
+                    {loanType === 'Empréstimo' && typeof loanDays === 'number' && loanDays > 0 && (
                         <p className="text-sm text-secondary-500">
                             Data prevista de devolução: <span className="font-semibold">{(() => {
                                 const d = new Date();
@@ -634,46 +665,25 @@ export default function Infraestrutura() {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3">
-                        <button
-                            onClick={() => handleLoanRequest('Empréstimo')}
-                            disabled={isUploading}
-                            className={`flex items-center justify-between p-4 border border-secondary-200 dark:border-secondary-800 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-200 transition-all text-left group
-                                ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        <Button
+                            onClick={() => handleLoanRequest(loanType)}
+                            disabled={isUploading || !loanPhoto}
+                            className="w-full p-6 text-lg"
                         >
-                            <div>
-                                <span className="block font-semibold text-primary-700 dark:text-primary-400 group-hover:text-primary-800">Confirmar Empréstimo</span>
-                                <span className="text-xs text-secondary-500">Item será devolvido ao estoque.</span>
-                            </div>
-                            <ArrowUpRight className="h-5 w-5 text-secondary-400 group-hover:text-primary-500" />
-                        </button>
-
-                        <button
-                            onClick={() => handleLoanRequest('Empréstimo Temporário')}
-                            disabled={isUploading}
-                            className={`flex items-center justify-between p-4 border border-secondary-200 dark:border-secondary-800 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20 hover:border-yellow-200 transition-all text-left group
-                                ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <div>
-                                <span className="block font-semibold text-yellow-700 dark:text-yellow-400 group-hover:text-yellow-800">Confirmar Empréstimo Temporário</span>
-                                <span className="text-xs text-secondary-500">Uso no mesmo dia (ex: atividades na sala do PET).</span>
-                            </div>
-                            <ArrowUpRight className="h-5 w-5 text-secondary-400 group-hover:text-yellow-500" />
-                        </button>
-
-                        <button
-                            onClick={() => handleLoanRequest('Uso Contínuo')}
-                            disabled={isUploading}
-                            className={`flex items-center justify-between p-4 border border-secondary-200 dark:border-secondary-800 rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-900 hover:border-secondary-300 transition-all text-left group
-                                ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <div>
-                                <span className="block font-semibold text-secondary-800 dark:text-secondary-200">Confirmar Uso Contínuo</span>
-                                <span className="text-xs text-secondary-500">Item será consumido/sem devolução.</span>
-                            </div>
-                            <CheckCircle2 className="h-5 w-5 text-secondary-400 group-hover:text-secondary-600" />
-                        </button>
-                    </div>
+                            {isUploading ? (
+                                <span className="flex items-center">
+                                    <span className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
+                                    Enviando solicitação...
+                                </span>
+                            ) : (
+                                <span className="flex items-center justify-between w-full">
+                                    <span>Confirmar Solicitação</span>
+                                    {loanType === 'Empréstimo' && <ArrowUpRight className="h-5 w-5 opacity-70" />}
+                                    {loanType === 'Empréstimo Temporário' && <ArrowUpRight className="h-5 w-5 opacity-70" />}
+                                    {loanType === 'Uso Contínuo' && <CheckCircle2 className="h-5 w-5 opacity-70" />}
+                                </span>
+                            )}
+                        </Button>
                 </div>
             </Modal>
         </div>
