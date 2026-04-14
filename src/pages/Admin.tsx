@@ -85,6 +85,16 @@ export default function Admin() {
     const [selectedMemberEval, setSelectedMemberEval] = useState<Member | null>(null);
     const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null);
 
+    // Keep editingSector in sync with realtime updates
+    React.useEffect(() => {
+        if (editingSector) {
+            const updated = sectors.find(s => s.id === editingSector.id);
+            if (updated) {
+                setEditingSector(updated);
+            }
+        }
+    }, [sectors]);
+
     // Filter tickets based on role
     const filteredTickets = tickets.filter(ticket => {
         if (userRole === 'admin_infra') {

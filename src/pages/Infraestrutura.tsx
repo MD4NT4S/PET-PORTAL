@@ -23,6 +23,16 @@ export default function Infraestrutura() {
 
     const isAdmin = userRole === 'admin_master' || userRole === 'admin_infra';
 
+    // Keep selectedSector in sync with realtime updates
+    React.useEffect(() => {
+        if (selectedSector) {
+            const updated = sectors.find(s => s.id === selectedSector.id);
+            if (updated) {
+                setSelectedSector(updated);
+            }
+        }
+    }, [sectors, selectedSector]);
+
     const handleDragStart = (index: number) => {
         if (!isAdmin) return;
         setDraggedIndex(index);
