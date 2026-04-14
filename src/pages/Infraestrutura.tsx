@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStorage } from '../context/StorageContext';
 import { Modal } from '../components/ui/Modal';
-import { Package, Info, ArrowUpRight, CheckCircle2, GripVertical, Download, Search } from 'lucide-react';
+import { Package, Info, ArrowUpRight, CheckCircle2, GripVertical, Download, Search, Image as ImageIcon, X } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { toast } from 'sonner';
@@ -574,31 +574,57 @@ export default function Infraestrutura() {
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Foto do Item (Obrigatório)</label>
                         <div className="flex items-center gap-4">
-                            <div className="relative w-full">
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => setLoanPhoto(e.target.files?.[0] || null)}
-                                    className="hidden"
-                                    id="loan-photo-upload"
-                                />
-                                <label
-                                    htmlFor="loan-photo-upload"
-                                    className="flex items-center justify-center w-full p-4 border-2 border-dashed border-secondary-300 rounded-lg cursor-pointer hover:bg-secondary-50 transition-colors"
-                                >
-                                    {loanPhoto ? (
-                                        <span className="text-sm text-green-600 font-medium flex items-center">
-                                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                                            {loanPhoto.name}
-                                        </span>
-                                    ) : (
-                                        <span className="text-sm text-secondary-500 flex items-center">
-                                            <Camera className="w-4 h-4 mr-2" />
-                                            Clique para tirar ou escolher foto
-                                        </span>
-                                    )}
-                                </label>
-                            </div>
+                            {!loanPhoto ? (
+                                <div className="flex w-full gap-2">
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            onChange={(e) => setLoanPhoto(e.target.files?.[0] || null)}
+                                            className="hidden"
+                                            id="loan-photo-upload-camera"
+                                        />
+                                        <label
+                                            htmlFor="loan-photo-upload-camera"
+                                            className="flex flex-col items-center justify-center w-full p-3 border-2 border-dashed border-secondary-300 dark:border-secondary-700 rounded-lg cursor-pointer hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors text-center"
+                                        >
+                                            <Camera className="w-5 h-5 mb-1 text-secondary-500" />
+                                            <span className="text-xs font-medium text-secondary-600 dark:text-secondary-400">Tirar Foto</span>
+                                        </label>
+                                    </div>
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => setLoanPhoto(e.target.files?.[0] || null)}
+                                            className="hidden"
+                                            id="loan-photo-upload-gallery"
+                                        />
+                                        <label
+                                            htmlFor="loan-photo-upload-gallery"
+                                            className="flex flex-col items-center justify-center w-full p-3 border-2 border-dashed border-secondary-300 dark:border-secondary-700 rounded-lg cursor-pointer hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors text-center"
+                                        >
+                                            <ImageIcon className="w-5 h-5 mb-1 text-secondary-500" />
+                                            <span className="text-xs font-medium text-secondary-600 dark:text-secondary-400">Galeria</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="w-full p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center justify-between">
+                                    <span className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center truncate">
+                                        <CheckCircle2 className="w-4 h-4 mr-2 flex-shrink-0" />
+                                        <span className="truncate">{loanPhoto.name}</span>
+                                    </span>
+                                    <button 
+                                        onClick={() => setLoanPhoto(null)} 
+                                        className="text-green-700 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 ml-2"
+                                        title="Remover foto"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         <p className="text-xs text-secondary-500">
                             Registre o estado atual do item antes de retirar.
