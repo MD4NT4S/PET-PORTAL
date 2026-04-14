@@ -400,7 +400,9 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                     userId: l.user_id,
                     userName: l.user_name,
                     itemName: l.item_name,
-                    expectedReturnDate: l.expected_return_date
+                    expectedReturnDate: l.expected_return_date,
+                    withdrawalPhotoUrl: l.withdrawal_photo_url,
+                    returnPhotoUrl: l.return_photo_url
                 })));
             }
 
@@ -446,8 +448,66 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const fetchInventoryData = async () => {
+        try {
+            const [sectorsRes, loansRes] = await Promise.all([
+                supabase.from('sectors').select('*, items:inventory_items(*)').order('display_order'),
+                supabase.from('loans').select('*').order('date', { ascending: false })
+            ]);
+
+            if (sectorsRes.data) {
+                const formattedSectors: Sector[] = sectorsRes.data.map((s: any) => ({
+                    id: s.id,
+                    name: s.name,
+                    category: s.category,
+                    displayOrder: s.display_order,
+                    items: s.items?.map((i: any) => ({
+                        id: i.id,
+                        name: i.name,
+                        code: i.code,
+                        quantity: i.quantity,
+                        status: i.status
+                    })) || []
+                }));
+                setSectors(formattedSectors);
+            }
+
+            if (loansRes.data) {
+                setLoans(loansRes.data.map(l => ({
+                    ...l,
+                    itemId: l.item_id,
+                    userId: l.user_id,
+                    userName: l.user_name,
+                    itemName: l.item_name,
+                    expectedReturnDate: l.expected_return_date,
+                    withdrawalPhotoUrl: l.withdrawal_photo_url,
+                    returnPhotoUrl: l.return_photo_url
+                })));
+            }
+        } catch (error) {
+            console.error("Error syncing inventory data:", error);
+        }
+    };
+
     useEffect(() => {
         fetchData();
+
+        // Realtime Subscriptions for Inventory and Loans
+        const channel = supabase.channel('inventory-sync')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => {
+                fetchInventoryData();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'sectors' }, () => {
+                fetchInventoryData();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, () => {
+                fetchInventoryData();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     // Auth Persistence
@@ -912,8 +972,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             adminNotes: notes
         } : l));
 
-        // 2. Return Item to Stock (if Empréstimo)
-        if (loan.type === 'Empréstimo') {
+        // 2. Return Item to Stock
+        if (loan.itemId) {
             const { data: item } = await supabase.from('inventory_items').select('*').eq('id', loan.itemId).single();
             if (item) {
                 const newQty = item.quantity + (loan.quantity || 1);
