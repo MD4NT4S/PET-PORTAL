@@ -16,8 +16,8 @@ export default function Infraestrutura() {
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const [loanQuantity, setLoanQuantity] = useState(1);
-    const [loanDays, setLoanDays] = useState(7);
+    const [loanQuantity, setLoanQuantity] = useState<number | ''>(1);
+    const [loanDays, setLoanDays] = useState<number | ''>(7);
     const [loanPhoto, setLoanPhoto] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
 
@@ -93,7 +93,8 @@ export default function Infraestrutura() {
             let returnDate = undefined;
             if (type === 'Empréstimo') {
                 const date = new Date();
-                date.setDate(date.getDate() + loanDays);
+                const daysToAdd = typeof loanDays === 'number' ? loanDays : 1;
+                date.setDate(date.getDate() + daysToAdd);
                 returnDate = date.toISOString();
             } else if (type === 'Empréstimo Temporário') {
                 // Return date is today for temporary loans
@@ -101,7 +102,8 @@ export default function Infraestrutura() {
                 returnDate = date.toISOString();
             }
 
-            const success = await addLoan(selectedItemForLoan.id, type, loanQuantity, returnDate, photoUrl);
+            const finalQuantity = typeof loanQuantity === 'number' ? loanQuantity : 1;
+            const success = await addLoan(selectedItemForLoan.id, type, finalQuantity, returnDate, photoUrl);
 
             if (success) {
                 setSelectedItemForLoan(null);
@@ -537,7 +539,11 @@ export default function Infraestrutura() {
                                 min={1}
                                 max={selectedItemForLoan?.quantity || 1}
                                 value={loanQuantity}
-                                onChange={(e) => setLoanQuantity(Math.min(Math.max(1, parseInt(e.target.value) || 1), selectedItemForLoan?.quantity || 1))}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '') setLoanQuantity('');
+                                    else setLoanQuantity(Math.min(Math.max(1, parseInt(val)), selectedItemForLoan?.quantity || 1));
+                                }}
                             />
                         </div>
                         <div className="space-y-2">
@@ -546,12 +552,16 @@ export default function Infraestrutura() {
                                 type="number"
                                 min={1}
                                 value={loanDays}
-                                onChange={(e) => setLoanDays(Math.max(1, parseInt(e.target.value) || 1))}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '') setLoanDays('');
+                                    else setLoanDays(Math.max(1, parseInt(val)));
+                                }}
                             />
                         </div>
                     </div>
 
-                    {loanDays > 0 && (
+                    {typeof loanDays === 'number' && loanDays > 0 && (
                         <p className="text-sm text-secondary-500">
                             Data prevista de devolução: <span className="font-semibold">{(() => {
                                 const d = new Date();
@@ -568,7 +578,6 @@ export default function Infraestrutura() {
                                 <input
                                     type="file"
                                     accept="image/*"
-                                    capture="environment"
                                     onChange={(e) => setLoanPhoto(e.target.files?.[0] || null)}
                                     className="hidden"
                                     id="loan-photo-upload"
