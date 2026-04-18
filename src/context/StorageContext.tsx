@@ -599,12 +599,18 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                             const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
                             if (serviceId && templateId && publicKey) {
-                                // Find emails of responsibles or default to all active members
+                                // Modo de Teste: Filtra apenas para administradores para evitar spam na transição/testes
                                 let recipients: string[] = [];
                                 if (event.responsibles && event.responsibles.length > 0) {
-                                    recipients = members.filter(m => event.responsibles?.includes(m.name)).map(m => m.email).filter(Boolean);
+                                    recipients = members
+                                        .filter(m => event.responsibles?.includes(m.name) && m.role.startsWith('admin_'))
+                                        .map(m => m.email)
+                                        .filter(Boolean);
                                 } else {
-                                    recipients = members.map(m => m.email).filter(Boolean);
+                                    recipients = members
+                                        .filter(m => m.role.startsWith('admin_'))
+                                        .map(m => m.email)
+                                        .filter(Boolean);
                                 }
 
                                 if (recipients.length === 0) continue;
