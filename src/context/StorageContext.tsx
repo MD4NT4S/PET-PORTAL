@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
-import emailjs from '@emailjs/browser';
 import { differenceInDays, isSameDay } from 'date-fns';
 
 // Types
@@ -594,11 +593,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                     const daysLeft = differenceInDays(event.start, today);
                     if (daysLeft <= event.reminderDaysBefore && daysLeft >= 0) {
                         try {
-                            const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-                            const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-                            const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-                            if (serviceId && templateId && publicKey) {
+                            // Logica de disparo usando Supabase + Resend
+                            if (true) { // Verificação removida pois a Secret fica no Supabase
                                 // Modo de Teste: Filtra apenas para administradores para evitar spam na transição/testes
                                 let recipients: string[] = [];
                                 if (event.responsibles && event.responsibles.length > 0) {
@@ -618,15 +614,30 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 const adminEmail = recipients[0];
                                 const bccList = recipients.join(',');
 
-                                await emailjs.send(serviceId, templateId, {
-                                    to_name: "Participante",
-                                    to_email: adminEmail,
-                                    bcc: bccList,
-                                    title: `Lembrete: ${event.title}`,
-                                    message: `Faltam ${daysLeft} dia(s) para o evento: ${event.description || ''}`,
-                                    type: event.type,
-                                    from_name: "Sistema PET (Automático)"
-                                }, publicKey);
+                                // Envia via Supabase Function (que usa Resend)
+                                const { data: resData, error: funcError } = await supabase.functions.invoke('resend-email', {
+                                    body: {
+                                        to: recipients.length === 1 ? recipients[0] : recipients,
+                                        bcc: bccList,
+                                        subject: `Lembrete: ${event.title}`,
+                                        html: `
+                                            <div style="font-family: sans-serif; padding: 20px; color: #333;">
+                                                <h2 style="color: #3b82f6;">Lembrete de Evento</h2>
+                                                <p>Olá, este é um lembrete automático do seu Portal PET.</p>
+                                                <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                                    <p><strong>Evento:</strong> ${event.title}</p>
+                                                    <p><strong>Quando:</strong> ${event.start.toLocaleString()}</p>
+                                                    <p><strong>Faltam:</strong> ${daysLeft} dia(s)</p>
+                                                    ${event.description ? `<p><strong>Descrição:</strong> ${event.description}</p>` : ''}
+                                                </div>
+                                                <p style="font-size: 12px; color: #666;">Por favor, não responda a este e-mail.</p>
+                                            </div>
+                                        `,
+                                        from_name: "Sistema PET (Automático)"
+                                    }
+                                });
+
+                                if (funcError) throw funcError;
 
                                 // Mark as sent in Database via the new updateEvent
                                 await updateEvent(event.id, { reminderSent: true });

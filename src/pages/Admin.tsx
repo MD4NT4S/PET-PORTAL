@@ -11,7 +11,6 @@ import SiteEditor from '../components/admin/SiteEditor';
 import { Modal } from '../components/ui/Modal';
 import type { Member, Sector, InventoryItem, Evaluation, Ombudsman } from '../context/StorageContext';
 import { supabase } from '../lib/supabase';
-import emailjs from '@emailjs/browser';
 
 export default function Admin() {
     const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, removeTicket, userRole, removeEvaluation, approveLoanReturn, notices, addNotice, removeNotice, currentUser } = useStorage();
@@ -395,11 +394,8 @@ export default function Admin() {
         addNotice(noticeData);
 
         // 2. Send Emails (Fire and Forget)
-        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-        const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-        if (serviceId && templateId && publicKey) {
+        // Inicia envio via Supabase + Resend
+        if (true) {
             toast.info('Iniciando envio de emails...');
 
             // Get all member emails
@@ -428,17 +424,30 @@ export default function Admin() {
                 // Cria lista BCC (todos exceto admin), unida por vírgula
                 const bccList = uniqueRecipients.filter(e => e !== adminEmail).join(',');
 
-                // Envia UM ÚNICO E-MAIL
-                await emailjs.send(serviceId, templateId, {
-                    to_name: "Equipe PET",
-                    to_email: adminEmail || uniqueRecipients[0], // Destinatário Principal
-                    bcc: bccList, // Destinatários Ocultos
+                // Envia UM ÚNICO E-MAIL via Supabase Function (Resend)
+                const { data: resData, error: funcError } = await supabase.functions.invoke('resend-email', {
+                    body: {
+                        to: adminEmail || uniqueRecipients[0],
+                        bcc: bccList,
+                        subject: `Portal PET: ${newNoticeTitle}`,
+                        html: `
+                            <div style="font-family: sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+                                <h2 style="color: #3b82f6;">${newNoticeTitle}</h2>
+                                <p style="font-size: 14px; color: #666;">Aviso enviado por ${currentUser || 'Admin'}</p>
+                                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                                <div style="white-space: pre-wrap; font-size: 16px;">
+                                    ${newNoticeContent}
+                                </div>
+                                <p style="margin-top: 30px; font-size: 12px; color: #999;">
+                                    Enviado via Portal PET Civil.
+                                </p>
+                            </div>
+                        `,
+                        from_name: currentUser || "Admin"
+                    }
+                });
 
-                    title: newNoticeTitle,
-                    message: newNoticeContent,
-                    type: newNoticeType === 'info' ? 'Informativo' : newNoticeType === 'alert' ? 'Alerta' : 'Evento',
-                    from_name: currentUser || 'Admin'
-                }, publicKey);
+                if (funcError) throw funcError;
 
                 // Log e Feedback
                 console.log(`Email único enviado para ${adminEmail} com BCC para ${uniqueRecipients.length - 1} membros.`);
@@ -450,10 +459,8 @@ export default function Admin() {
             }
 
 
-        } else {
-            console.error('EmailJS keys missing in .env:', { serviceId, templateId, publicKey });
-            toast.error('Erro de Configuração: Chaves do EmailJS não encontradas. Verifique o .env e reinicie o servidor.');
         }
+
 
         setNewNoticeTitle('');
         setNewNoticeContent('');
