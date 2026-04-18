@@ -18,7 +18,7 @@ export default function MyRequests() {
     // Filter by current user
     const myTickets = tickets.filter(t => t.author === currentUser);
     const myEvaluations = evaluations.filter(e => e.author === currentUser);
-    const myLoans = loans.filter(l => l.userName === currentUser && (l.status === 'Ativo' || l.status === 'Aguardando Aprovação' || l.status === 'Atrasado'));
+    const myLoans = loans.filter(l => l.userName === currentUser && (l.status === 'Ativo' || l.status === 'Aguardando Aprovação' || l.status === 'Atrasado' || l.status === 'Devolvido'));
     const myOmbudsman = ombudsman.filter(o => o.identification === currentUser);
 
     const getLoanItemCode = (itemId: string) => {
@@ -211,7 +211,11 @@ export default function MyRequests() {
                                             <p className="text-secondary-600 dark:text-secondary-400 text-sm mt-1">
                                                 Quantidade: {loan.quantity} • Tipo: {loan.type}
                                             </p>
-                                            {loan.expectedReturnDate && (
+                                            {loan.status === 'Devolvido' && loan.actualReturnDate ? (
+                                                <p className="text-xs text-secondary-500 mt-1">
+                                                    Devolvido em: {new Date(loan.actualReturnDate).toLocaleDateString()}
+                                                </p>
+                                            ) : loan.expectedReturnDate && (
                                                 <p className="text-xs text-secondary-500 mt-1">
                                                     Devolução prevista: {new Date(loan.expectedReturnDate).toLocaleDateString()}
                                                 </p>

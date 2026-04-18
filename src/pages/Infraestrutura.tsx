@@ -174,7 +174,7 @@ export default function Infraestrutura() {
                 `"${safeType}"`,
                 loan.quantity || 1,
                 `"${new Date(loan.date).toLocaleDateString()}"`,
-                `"${loan.expectedReturnDate ? new Date(loan.expectedReturnDate).toLocaleDateString() : '-'}"`,
+                `"${loan.actualReturnDate ? new Date(loan.actualReturnDate).toLocaleDateString() : loan.expectedReturnDate ? new Date(loan.expectedReturnDate).toLocaleDateString() : '-'}"`,
                 `"${safeStatus}"`
             ].join(";");
             csvContent += row + "\r\n";

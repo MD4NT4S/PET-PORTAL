@@ -740,7 +740,11 @@ export default function Admin() {
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        {loan.type === 'Empréstimo' && loan.expectedReturnDate ? (
+                                                        {loan.status === 'Devolvido' && loan.actualReturnDate ? (
+                                                            <span className="text-green-600 dark:text-green-400 font-medium">
+                                                                {new Date(loan.actualReturnDate).toLocaleDateString()}
+                                                            </span>
+                                                        ) : loan.type === 'Empréstimo' && loan.expectedReturnDate ? (
                                                             <span className="text-orange-600 dark:text-orange-400 font-medium">
                                                                 {new Date(loan.expectedReturnDate).toLocaleDateString()}
                                                             </span>

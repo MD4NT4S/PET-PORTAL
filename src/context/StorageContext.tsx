@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import emailjs from '@emailjs/browser';
+import { differenceInDays, isSameDay } from 'date-fns';
 
 // Types
 export interface Ticket {
@@ -106,6 +108,7 @@ export interface Loan {
     returnPhotoUrl?: string; // Foto da devolução
     returnCondition?: 'ok' | 'damaged' | 'dirty' | null;
     adminNotes?: string | null;
+    actualReturnDate?: string;
 }
 
 export interface Photo {
@@ -174,6 +177,7 @@ interface StorageContextType {
     updateSiteConfig: (config: SiteConfig) => void;
     events: CalendarEvent[];
     addEvent: (event: CalendarEvent) => void;
+    updateEvent: (id: string, event: Partial<CalendarEvent>) => Promise<void>;
     removeEvent: (id: string) => void;
     feedbacks: Feedback[];
     addFeedback: (feedback: Omit<Feedback, 'id' | 'createdAt'>) => void;
@@ -224,10 +228,16 @@ export interface SiteConfig {
 
 export interface CalendarEvent {
     id: string;
-    date: string; // DD/MM/YYYY or DD/MM
     title: string;
-    type: 'meeting' | 'deadline' | 'event' | 'birthday';
+    type: 'meeting' | 'deadline' | 'event' | 'birthday' | 'task';
     responsibles?: string[];
+    // Rich properties (serialized into `date` for DB compatibility)
+    start: Date;
+    end?: Date;
+    reminderDaysBefore?: number;
+    reminderSent?: boolean;
+    description?: string;
+    link?: string;
 }
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -372,7 +382,40 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             }
 
             // Process Events
-            if (eventsRes.data) setEvents(eventsRes.data);
+            if (eventsRes.data) {
+                const parsedEvents = eventsRes.data.map(e => {
+                    try {
+                        if (e.date && e.date.startsWith('{')) {
+                            const richData = JSON.parse(e.date);
+                            return {
+                                ...e,
+                                start: new Date(richData.start),
+                                end: richData.end ? new Date(richData.end) : undefined,
+                                reminderDaysBefore: richData.reminderDaysBefore,
+                                reminderSent: richData.reminderSent,
+                                description: richData.description,
+                                link: richData.link
+                            };
+                        }
+                    } catch {}
+                    
+                    // Fallback for legacy DD/MM/YYYY dates
+                    if (typeof e.date === 'string') {
+                        const parts = e.date.split('/');
+                        if (parts.length >= 2) {
+                            const day = parseInt(parts[0]);
+                            const month = parseInt(parts[1]) - 1;
+                            const year = parts[2] ? parseInt(parts[2]) : new Date().getFullYear();
+                            return {
+                                ...e,
+                                start: new Date(year, month, day, 9, 0), // 9 AM default
+                            };
+                        }
+                    }
+                    return { ...e, start: new Date() };
+                });
+                setEvents(parsedEvents);
+            }
 
             // Process Sectors
             if (sectorsRes.data) {
@@ -394,16 +437,30 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
             // Process Loans
             if (loansRes.data) {
-                setLoans(loansRes.data.map(l => ({
-                    ...l,
-                    itemId: l.item_id,
-                    userId: l.user_id,
-                    userName: l.user_name,
-                    itemName: l.item_name,
-                    expectedReturnDate: l.expected_return_date,
-                    withdrawalPhotoUrl: l.withdrawal_photo_url,
-                    returnPhotoUrl: l.return_photo_url
-                })));
+                setLoans(loansRes.data.map(l => {
+                    let actualReturnDate = undefined;
+                    let cleanNotes = l.admin_notes;
+                    if (l.admin_notes && l.admin_notes.includes('[RETURN_DATE:')) {
+                        const match = l.admin_notes.match(/\[RETURN_DATE:([^\]]+)\](.*)/s);
+                        if (match) {
+                            actualReturnDate = match[1];
+                            cleanNotes = match[2].trim() || null;
+                        }
+                    }
+
+                    return {
+                        ...l,
+                        itemId: l.item_id,
+                        userId: l.user_id,
+                        userName: l.user_name,
+                        itemName: l.item_name,
+                        expectedReturnDate: l.expected_return_date,
+                        actualReturnDate,
+                        withdrawalPhotoUrl: l.withdrawal_photo_url,
+                        returnPhotoUrl: l.return_photo_url,
+                        adminNotes: cleanNotes
+                    };
+                }));
             }
 
             // Process Site Config
@@ -473,16 +530,30 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (loansRes.data) {
-                setLoans(loansRes.data.map(l => ({
-                    ...l,
-                    itemId: l.item_id,
-                    userId: l.user_id,
-                    userName: l.user_name,
-                    itemName: l.item_name,
-                    expectedReturnDate: l.expected_return_date,
-                    withdrawalPhotoUrl: l.withdrawal_photo_url,
-                    returnPhotoUrl: l.return_photo_url
-                })));
+                setLoans(loansRes.data.map(l => {
+                    let actualReturnDate = undefined;
+                    let cleanNotes = l.admin_notes;
+                    if (l.admin_notes && l.admin_notes.includes('[RETURN_DATE:')) {
+                        const match = l.admin_notes.match(/\[RETURN_DATE:([^\]]+)\](.*)/s);
+                        if (match) {
+                            actualReturnDate = match[1];
+                            cleanNotes = match[2].trim() || null;
+                        }
+                    }
+
+                    return {
+                        ...l,
+                        itemId: l.item_id,
+                        userId: l.user_id,
+                        userName: l.user_name,
+                        itemName: l.item_name,
+                        expectedReturnDate: l.expected_return_date,
+                        actualReturnDate,
+                        withdrawalPhotoUrl: l.withdrawal_photo_url,
+                        returnPhotoUrl: l.return_photo_url,
+                        adminNotes: cleanNotes
+                    };
+                }));
             }
         } catch (error) {
             console.error("Error syncing inventory data:", error);
@@ -509,6 +580,68 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             supabase.removeChannel(channel);
         };
     }, []);
+
+    // Email Reminder Routine
+    useEffect(() => {
+        const checkReminders = async () => {
+            if (!isAdmin || events.length === 0 || members.length === 0) return;
+
+            const today = new Date();
+            let eventsUpdated = false;
+
+            for (const event of events) {
+                if (event.reminderDaysBefore && !event.reminderSent && event.start) {
+                    const daysLeft = differenceInDays(event.start, today);
+                    if (daysLeft <= event.reminderDaysBefore && daysLeft >= 0) {
+                        try {
+                            const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+                            const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+                            const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+                            if (serviceId && templateId && publicKey) {
+                                // Find emails of responsibles or default to all active members
+                                let recipients: string[] = [];
+                                if (event.responsibles && event.responsibles.length > 0) {
+                                    recipients = members.filter(m => event.responsibles?.includes(m.name)).map(m => m.email).filter(Boolean);
+                                } else {
+                                    recipients = members.map(m => m.email).filter(Boolean);
+                                }
+
+                                if (recipients.length === 0) continue;
+
+                                const adminEmail = recipients[0];
+                                const bccList = recipients.join(',');
+
+                                await emailjs.send(serviceId, templateId, {
+                                    to_name: "Participante",
+                                    to_email: adminEmail,
+                                    bcc: bccList,
+                                    title: `Lembrete: ${event.title}`,
+                                    message: `Faltam ${daysLeft} dia(s) para o evento: ${event.description || ''}`,
+                                    type: event.type,
+                                    from_name: "Sistema PET (Automático)"
+                                }, publicKey);
+
+                                // Mark as sent in Database via the new updateEvent
+                                await updateEvent(event.id, { reminderSent: true });
+                                eventsUpdated = true;
+                                console.log(`[Lembrete] E-mail enviado para o evento: ${event.title}`);
+                            }
+                        } catch (err) {
+                            console.error('[Lembrete] Falha ao enviar lembrete:', err);
+                        }
+                    }
+                }
+            }
+        };
+
+        // Delay checking slightly to ensure DB is fully loaded
+        const timeout = setTimeout(() => {
+            checkReminders();
+        }, 5000);
+
+        return () => clearTimeout(timeout);
+    }, [events, isAdmin, members]);
 
     // Auth Persistence
     useEffect(() => {
@@ -723,18 +856,48 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     };
 
     const addEvent = async (event: CalendarEvent) => {
-        // Event ID is generic string in interface but UUID in DB.
-        // If event usually comes with ID from frontend (it shouldn't if new), we ignore it or use it?
-        // Let's assume frontend generates ID or we generate it. 
-        // Supabase generates UUID.
-        const { id, ...eventData } = event;
-        const { data: inserted, error } = await supabase.from('events').insert(eventData).select().single();
+        const { id, start, end, reminderDaysBefore, reminderSent, description, link, ...eventData } = event;
+        const richData = JSON.stringify({ 
+            start: start.toISOString(), 
+            end: end?.toISOString(), 
+            reminderDaysBefore, 
+            reminderSent, 
+            description,
+            link
+        });
+        
+        const dbEvent = { ...eventData, date: richData };
+
+        const { data: inserted, error } = await supabase.from('events').insert(dbEvent).select().single();
         if (error) {
             toast.error('Erro ao adicionar evento');
             return;
         }
         if (inserted) {
-            setEvents(prev => [...prev, inserted as CalendarEvent]);
+            setEvents(prev => [...prev, { ...event, id: inserted.id }]);
+        }
+    };
+
+    const updateEvent = async (id: string, event: Partial<CalendarEvent>) => {
+        // Find existing to merge rich data
+        const existing = events.find(e => e.id === id);
+        if (!existing) return;
+
+        const updated = { ...existing, ...event };
+        const { id: _, start, end, reminderDaysBefore, reminderSent, description, link, ...eventData } = updated;
+        const richData = JSON.stringify({ 
+            start: start.toISOString(), 
+            end: end?.toISOString(), 
+            reminderDaysBefore, 
+            reminderSent, 
+            description,
+            link
+        });
+
+        const dbEvent = { ...eventData, date: richData };
+        const { error } = await supabase.from('events').update(dbEvent).eq('id', id);
+        if (!error) {
+            setEvents(prev => prev.map(e => e.id === id ? updated : e));
         }
     };
 
@@ -953,11 +1116,14 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         const loan = loans.find(l => l.id === loanId);
         if (!loan || loan.status !== 'Aguardando Aprovação') return false;
 
+        const actualReturnDate = new Date().toISOString();
+        const combinedNotes = `[RETURN_DATE:${actualReturnDate}] ` + (notes || '');
+
         // 1. Finalize Loan
         const { error: loanError } = await supabase.from('loans').update({
             status: 'Devolvido',
             return_condition: condition,
-            admin_notes: notes
+            admin_notes: combinedNotes
         }).eq('id', loanId);
 
         if (loanError) {
@@ -969,7 +1135,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             ...l,
             status: 'Devolvido',
             returnCondition: condition,
-            adminNotes: notes
+            adminNotes: notes,
+            actualReturnDate
         } : l));
 
         // 2. Return Item to Stock
@@ -1237,6 +1404,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 removeMember,
                 events,
                 addEvent,
+                updateEvent,
                 removeEvent,
                 updateOmbudsmanStatus,
                 removeOmbudsman,
