@@ -580,21 +580,24 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
-    // Email Reminder Routine
     useEffect(() => {
         const checkReminders = async () => {
             if (!isAdmin || events.length === 0 || members.length === 0) return;
 
             const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
             for (const event of events) {
-                // BUG FIX: check for existence, not truthy (0 is falsy)
+                // BUG FIX: check for existence, not just truthy (0 is falsy)
                 if (event.reminderDaysBefore !== undefined && !event.reminderSent && event.start) {
                     const eventDate = new Date(event.start);
+                    eventDate.setHours(0, 0, 0, 0);
+
+                    // differenceInDays is fine, but for 0 days the match needs to be precise per day
                     const daysLeft = differenceInDays(eventDate, today);
 
                     if (daysLeft <= event.reminderDaysBefore && daysLeft >= 0) {
                         try {
-                            // MODO DE TESTE: Para evitar spam durante homologação
                             let recipients: string[] = [];
                             
                             // 1. Tentar pegar os e-mails dos responsáveis que são administradores
@@ -616,41 +619,42 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                         .filter(m => m.role.startsWith('admin_'))
                                         .map(m => m.email)
                                         .filter(Boolean);
+                                }
+                            }
+
                             if (recipients.length === 0) continue;
 
                             const adminEmail = recipients[0];
                             const bccList = recipients.filter(e => e !== adminEmail).join(',');
 
-                            // Envia via Supabase Function (que usa Resend)
-                            const { data: resData, error: funcError } = await supabase.functions.invoke('resend-email', {
-                                    body: {
-                                        to: recipients.length === 1 ? recipients[0] : recipients,
-                                        bcc: bccList,
-                                        subject: `Lembrete: ${event.title}`,
-                                        html: `
-                                            <div style="font-family: sans-serif; padding: 20px; color: #333;">
-                                                <h2 style="color: #3b82f6;">Lembrete de Evento</h2>
-                                                <p>Olá, este é um lembrete automático do seu Portal PET.</p>
-                                                <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                                                    <p><strong>Evento:</strong> ${event.title}</p>
-                                                    <p><strong>Quando:</strong> ${event.start.toLocaleString()}</p>
-                                                    <p><strong>Faltam:</strong> ${daysLeft} dia(s)</p>
-                                                    ${event.description ? `<p><strong>Descrição:</strong> ${event.description}</p>` : ''}
-                                                </div>
-                                                <p style="font-size: 12px; color: #666;">Por favor, não responda a este e-mail.</p>
+                            // Envia via Supabase Function
+                            const { error: funcError } = await supabase.functions.invoke('resend-email', {
+                                body: {
+                                    to: recipients.length === 1 ? recipients[0] : recipients,
+                                    bcc: bccList,
+                                    subject: `Lembrete: ${event.title}`,
+                                    html: `
+                                        <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
+                                            <h2 style="color: #3b82f6; margin-top: 0;">Lembrete de Evento</h2>
+                                            <p>Olá, este é um lembrete automático do seu <strong>Portal PET</strong>.</p>
+                                            <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                                <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
+                                                <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString()}</p>
+                                                <p style="margin: 5px 0;"><strong>Status:</strong> Falta(m) ${daysLeft} dia(s)</p>
+                                                ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
                                             </div>
-                                        `,
-                                        from_name: "Sistema PET (Automático)"
-                                    }
-                                });
+                                            <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
+                                        </div>
+                                    `,
+                                    from_name: "Sistema PET (Automático)"
+                                }
+                            });
 
-                                if (funcError) throw funcError;
+                            if (funcError) throw funcError;
 
-                                // Mark as sent in Database via the new updateEvent
-                                await updateEvent(event.id, { reminderSent: true });
-                                eventsUpdated = true;
-                                console.log(`[Lembrete] E-mail enviado para o evento: ${event.title}`);
-                            }
+                            // Mark as sent in Database
+                            await updateEvent(event.id, { reminderSent: true });
+                            console.log(`[Lembrete] E-mail enviado para o evento: ${event.title}`);
                         } catch (err) {
                             console.error('[Lembrete] Falha ao enviar lembrete:', err);
                         }
