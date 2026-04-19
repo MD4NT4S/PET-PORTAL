@@ -11,35 +11,45 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, html, bcc, from_name } = await req.json()
+    const { to, subject, html, bcc, from_name, template } = await req.json()
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
     if (!RESEND_API_KEY) throw new Error('Missing RESEND_API_KEY')
 
-    // IMPORTANTE: Enquanto o domínio não for validado no Resend, 
-    // PRECISAMOS usar o e-mail abaixo, senão o Resend bloqueia o envio.
-    // O Resend só enviará para o e-mail do próprio dono da conta nesta fase.
-    const fromEmail = "onboarding@resend.dev"; 
-    const { to, subject, html, bcc, from_name, template } = await req.json()
+    // Domínio verificado! Agora podemos enviar para qualquer e-mail.
+    const fromEmail = "sistema@petcivil.site"; 
 
-    console.log(`[Resend] Tentando enviar para: ${to}`);
+    // Log inicial
+    console.log(`[Resend] Nova solicitação de envio. To: ${JSON.stringify(to)} | Template: ${template?.id || 'Nenhum'}`);
 
     const bccArray = bcc 
-      ? (Array.isArray(bcc) ? bcc : bcc.split(',')).map(e => e.trim()).filter(e => e !== '' && e !== (Array.isArray(to) ? to[0] : to))
+      ? (Array.isArray(bcc) ? bcc : bcc.split(',')).map(e => e.trim()).filter(e => e !== '')
       : [];
 
     const payload: any = {
       from: `${from_name || 'Portal PET'} <${fromEmail}>`,
       to: Array.isArray(to) ? to : [to],
-      bcc: bccArray.length > 0 ? bccArray : undefined,
     }
 
-    if (template) {
-      payload.template = template
-    } else {
-      payload.subject = subject
-      payload.html = html
+    if (bccArray.length > 0) {
+      payload.bcc = bccArray;
     }
+
+    if (template && template.id) {
+      console.log(`[Resend] Usando template: ${template.id}`);
+      payload.template = {
+        id: template.id.trim(),
+        variables: template.variables || {}
+      };
+      // Quando usa template, subject é opcional (substitui o do template se enviado)
+      if (subject) payload.subject = subject;
+    } else {
+      console.log(`[Resend] Usando HTML padrão.`);
+      payload.subject = subject || "Aviso Portal PET";
+      payload.html = html || "";
+    }
+
+    console.log("[Resend] Payload Final:", JSON.stringify(payload, null, 2));
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',

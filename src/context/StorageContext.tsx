@@ -645,9 +645,10 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
                             // Se tiver templateID, usa! Senão usa HTML padrão.
                             if (event.templateId) {
-                                console.log(`[Lembrete] Usando template do Resend: ${event.templateId}`);
+                                const cleanTemplateId = event.templateId.trim();
+                                console.log(`[Lembrete] Usando template do Resend: ${cleanTemplateId}`);
                                 emailBody.template = {
-                                    id: event.templateId,
+                                    id: cleanTemplateId,
                                     variables: {
                                         title: event.title,
                                         date: new Date(event.start).toLocaleDateString(),
@@ -673,19 +674,28 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 `;
                             }
 
-                            const { error: funcError } = await supabase.functions.invoke('resend-email', {
+                            const { data: resData, error: funcError } = await supabase.functions.invoke('resend-email', {
                                 body: emailBody
                             });
 
-                            if (funcError) throw funcError;
+                            if (funcError) {
+                                throw new Error(funcError.message || 'Erro na função do Supabase');
+                            }
+
+                            if (resData && resData.error) {
+                                // Erro específico do Resend (ex: Template não encontrado)
+                                const detail = typeof resData.error === 'object' ? resData.error.message : resData.error;
+                                throw new Error(detail || 'Erro reportado pelo Resend');
+                            }
 
                             // Mark as sent in Database
                             await updateEvent(event.id, { reminderSent: true });
                             console.log(`[Lembrete] E-mail enviado com sucesso para: ${event.title}`);
                             toast.success(`Lembrete enviado: ${event.title}`);
-                        } catch (err) {
+                        } catch (err: any) {
                             console.error('[Lembrete] Falha ao enviar lembrete:', err);
-                            toast.error(`Falha no lembrete: ${event.title}`);
+                            const errorMsg = err.message || 'Erro desconhecido';
+                            toast.error(`Falha no lembrete: ${errorMsg}`);
                         }
                     }
                 }
