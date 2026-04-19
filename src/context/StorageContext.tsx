@@ -140,8 +140,8 @@ interface StorageContextType {
     isAdmin: boolean;
     canManageCalendar: boolean;
     userRole: 'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null;
-    loginUser: (identifier: string, password?: string | boolean, isAdmin?: boolean) => boolean;
-    logoutUser: () => void;
+    loginUser: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+    logoutUser: () => Promise<void>;
     addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'author'>) => void;
     updateTicket: (id: string, data: Partial<Ticket>) => void;
     removeTicket: (id: string) => Promise<void>;
@@ -281,14 +281,36 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_SITE_CONFIG);
     const [loadingConfig, setLoadingConfig] = useState(true);
 
-    // Auth State (Local Persistence for Session)
-    const [currentUser, setCurrentUser] = useState<string | null>(() => {
-        return localStorage.getItem('pet-current-user');
-    });
+    const [userRole, setUserRole] = useState<'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null>(null);
 
-    const [userRole, setUserRole] = useState<'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null>(() => {
-        return localStorage.getItem('pet-user-role') as any || null;
-    });
+    // --- Auth Management (Supabase Auth) ---
+    useEffect(() => {
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session) {
+                // Fetch profile to get real role and name
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (profile) {
+                    setCurrentUser(profile.full_name || session.user.email);
+                    setUserRole(profile.role as any);
+                } else {
+                    // Fallback to metadata if profile not found yet
+                    setCurrentUser(session.user.user_metadata.full_name || session.user.email);
+                    setUserRole(session.user.user_metadata.role || 'member');
+                }
+            } else {
+                setCurrentUser(null);
+                setUserRole(null);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     // Fix: Allow all admins to log in via AdminLogin
     const isAdmin = ['admin_master', 'admin_infra', 'admin_gp', 'admin_secretaria', 'admin_divulgacao', 'admin_pesquisa'].includes(userRole || '');
@@ -1424,42 +1446,25 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         toast.success('Documento removido');
     };
 
-    const loginUser = (identifier: string, passwordOrIsAdmin?: string | boolean, isAdminAttempt: boolean = false) => {
-        // Sync Login using loaded members
-        if (typeof passwordOrIsAdmin === 'boolean') {
-            isAdminAttempt = passwordOrIsAdmin;
-        }
-        const password = typeof passwordOrIsAdmin === 'string' ? passwordOrIsAdmin : '';
+    const loginUser = async (email: string, password?: string) => {
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password: password || '',
+            });
 
-        // Unified Login Logic: check members list (which now includes admins)
-        // We match by Name OR Email (identifier) AND Password
-        // AND if isAdminAttempt is true, we verify the user has an admin role.
-
-        const user = members.find(m => (m.name === identifier || m.email === identifier) && m.password === password);
-
-        if (user) {
-            if (isAdminAttempt) {
-                // Must have admin role
-                const adminRoles = ['admin_master', 'admin_infra', 'admin_gp', 'admin_secretaria', 'admin_divulgacao', 'admin_pesquisa'];
-                if (adminRoles.includes(user.role)) {
-                    setCurrentUser(user.name);
-                    setUserRole(user.role as any);
-                    return true;
-                } else {
-                    return false; // Valid credentials but not an admin
-                }
-            } else {
-                // Member login (can be any role, but usually 'member')
-                setCurrentUser(user.name);
-                setUserRole(user.role as any);
-                return true;
+            if (error) {
+                return { success: false, error: error.message };
             }
-        }
 
-        return false;
+            return { success: true };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
     };
 
-    const logoutUser = () => {
+    const logoutUser = async () => {
+        await supabase.auth.signOut();
         setCurrentUser(null);
         setUserRole(null);
     };

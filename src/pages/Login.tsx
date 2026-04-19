@@ -20,38 +20,61 @@ export default function Login() {
     const [adminPassword, setAdminPassword] = useState('');
     const [error, setError] = useState(false);
 
-    const handleMemberLogin = (e: React.FormEvent) => {
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleMemberLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedMember || !memberPassword) {
             toast.error('Preencha seu nome e senha.');
             return;
         }
 
-        const success = loginUser(selectedMember, memberPassword);
+        setIsLoading(true);
+        // Find email for the selected member name
+        const member = members.find(m => m.name === selectedMember);
+        if (!member) {
+            toast.error('Membro não encontrado.');
+            setIsLoading(false);
+            return;
+        }
 
-        if (success) {
+        const result = await loginUser(member.email, memberPassword);
+
+        if (result.success) {
             toast.success(`Bem-vindo, ${selectedMember}!`);
             navigate('/');
         } else {
-            toast.error('Senha incorreta ou usuário não encontrado.');
+            toast.error(result.error || 'Senha incorreta ou usuário não encontrado.');
         }
+        setIsLoading(false);
     };
 
-    const handleAdminLogin = (e: React.FormEvent) => {
+    const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!adminIdentifier || !adminPassword) {
             toast.error('Preencha todos os campos.');
             return;
         }
 
-        const success = loginUser(adminIdentifier.trim(), adminPassword, true);
-        if (success) {
+        setIsLoading(true);
+        // In admin tab, identifier could be email or name. 
+        // If it looks like email, use it directly. If not, try to find in members.
+        let email = adminIdentifier;
+        if (!adminIdentifier.includes('@')) {
+            const admin = members.find(m => m.name === adminIdentifier);
+            if (admin) email = admin.email;
+        }
+
+        const result = await loginUser(email.trim(), adminPassword);
+        
+        if (result.success) {
             toast.success('Acesso administrativo concedido.');
             navigate('/');
         } else {
             setError(true);
-            toast.error('Credenciais incorretas.');
+            toast.error(result.error || 'Credenciais incorretas.');
         }
+        setIsLoading(false);
     };
 
     return (
@@ -116,8 +139,8 @@ export default function Login() {
                                     value={memberPassword}
                                     onChange={e => setMemberPassword(e.target.value)}
                                 />
-                                <Button type="submit" className="w-full">
-                                    Entrar
+                                <Button type="submit" className="w-full" disabled={isLoading}>
+                                    {isLoading ? 'Autenticando...' : 'Entrar'}
                                 </Button>
                             </form>
                         ) : (
@@ -143,8 +166,8 @@ export default function Login() {
                                     }}
                                     error={error ? "Credenciais incorretas" : undefined}
                                 />
-                                <Button type="submit" className="w-full">
-                                    Acessar Painel
+                                <Button type="submit" className="w-full" disabled={isLoading}>
+                                    {isLoading ? 'Acessando...' : 'Acessar Painel'}
                                 </Button>
                             </form>
                         )}
