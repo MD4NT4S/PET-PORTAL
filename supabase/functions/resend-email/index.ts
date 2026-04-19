@@ -65,9 +65,10 @@ serve(async (req) => {
     if (!res.ok) {
       const errorMsg = resData.message || resData.error?.message || JSON.stringify(resData);
       console.error(`[Resend Error] Status: ${res.status} | Message: ${errorMsg}`);
-      return new Response(JSON.stringify({ error: true, message: errorMsg }), {
+      // Retornamos 200 para o Supabase não interceptar com "non-2xx"
+      return new Response(JSON.stringify({ error: true, resend_status: res.status, message: errorMsg }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: res.status,
+        status: 200,
       })
     }
 

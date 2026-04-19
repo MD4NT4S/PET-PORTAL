@@ -681,16 +681,15 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
                             const { data: resData, error: funcError } = response;
 
-                            // Se houver erro, tenta pegar a mensagem detalhada
+                            // Se houver erro de rede/função OU erro reportado no corpo (mesmo com status 200)
                             if (funcError || (resData && resData.error)) {
-                                console.error('[Lembrete] Erro detectado:', { funcError, resData });
+                                console.error('[Lembrete] Erro detectado no envio:', { funcError, resData });
                                 
                                 let errorMessage = 'Erro no envio';
 
                                 if (resData && resData.message) {
+                                    // Pega a mensagem real que injetamos ou que veio do Resend
                                     errorMessage = resData.message;
-                                } else if (resData && resData.error) {
-                                    errorMessage = typeof resData.error === 'string' ? resData.error : (resData.error.message || JSON.stringify(resData.error));
                                 } else if (funcError) {
                                     errorMessage = funcError.message;
                                 }
