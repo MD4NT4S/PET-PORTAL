@@ -640,7 +640,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                             const emailBody: any = {
                                 to: recipients.length === 1 ? recipients[0] : recipients,
                                 bcc: bccList,
-                                from_name: "Sistema PET (Automático)"
+                                from_name: "Sistema PET (Automático)",
+                                subject: `Lembrete: ${event.title}`
                             };
 
                             // Se tiver templateID, usa! Senão usa HTML padrão.
