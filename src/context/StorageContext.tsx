@@ -674,32 +674,37 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 `;
                             }
 
-                            const { data: resData, error: funcError } = await supabase.functions.invoke('resend-email', {
+                            // Tenta invocar a função
+                            const response = await supabase.functions.invoke('resend-email', {
                                 body: emailBody
                             });
 
-                            // Se houver erro, tenta pegar a mensagem detalhada do corpo (resData) ou do erro de rede
+                            const { data: resData, error: funcError } = response;
+
+                            // Se houver erro, tenta pegar a mensagem detalhada
                             if (funcError || (resData && resData.error)) {
-                                let detail = 'Erro desconhecido';
+                                console.error('[Lembrete] Erro detectado:', { funcError, resData });
                                 
-                                if (resData) {
-                                    // Se a função retornou um erro estruturado
-                                    detail = typeof resData.error === 'object' ? resData.error.message : (resData.message || JSON.stringify(resData));
+                                let errorMessage = 'Erro no envio';
+
+                                if (resData && resData.message) {
+                                    errorMessage = resData.message;
+                                } else if (resData && resData.error) {
+                                    errorMessage = typeof resData.error === 'string' ? resData.error : (resData.error.message || JSON.stringify(resData.error));
                                 } else if (funcError) {
-                                    detail = funcError.message;
+                                    errorMessage = funcError.message;
                                 }
 
-                                throw new Error(detail);
+                                throw new Error(errorMessage);
                             }
 
                             // Mark as sent in Database
                             await updateEvent(event.id, { reminderSent: true });
-                            console.log(`[Lembrete] E-mail enviado com sucesso para: ${event.title}`);
+                            console.log(`[Lembrete] E-mail enviado com sucesso: ${event.title}`);
                             toast.success(`Lembrete enviado: ${event.title}`);
                         } catch (err: any) {
-                            console.error('[Lembrete] Falha ao enviar lembrete:', err);
-                            const errorMsg = err.message || 'Erro de conexão';
-                            toast.error(`Falha no lembrete: ${errorMsg}`);
+                            console.error('[Lembrete] Erro final:', err);
+                            toast.error(`Erro: ${err.message || 'Falha na conexão'}`);
                         }
                     }
                 }

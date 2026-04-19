@@ -63,9 +63,9 @@ serve(async (req) => {
     const resData = await res.json()
 
     if (!res.ok) {
-      const errorText = JSON.stringify(resData);
-      console.error(`[Resend Error] Status: ${res.status} | Body: ${errorText}`);
-      return new Response(errorText, {
+      const errorMsg = resData.message || resData.error?.message || JSON.stringify(resData);
+      console.error(`[Resend Error] Status: ${res.status} | Message: ${errorMsg}`);
+      return new Response(JSON.stringify({ error: true, message: errorMsg }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: res.status,
       })
