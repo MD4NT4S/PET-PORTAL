@@ -678,14 +678,18 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 body: emailBody
                             });
 
-                            if (funcError) {
-                                throw new Error(funcError.message || 'Erro na função do Supabase');
-                            }
+                            // Se houver erro, tenta pegar a mensagem detalhada do corpo (resData) ou do erro de rede
+                            if (funcError || (resData && resData.error)) {
+                                let detail = 'Erro desconhecido';
+                                
+                                if (resData) {
+                                    // Se a função retornou um erro estruturado
+                                    detail = typeof resData.error === 'object' ? resData.error.message : (resData.message || JSON.stringify(resData));
+                                } else if (funcError) {
+                                    detail = funcError.message;
+                                }
 
-                            if (resData && resData.error) {
-                                // Erro específico do Resend (ex: Template não encontrado)
-                                const detail = typeof resData.error === 'object' ? resData.error.message : resData.error;
-                                throw new Error(detail || 'Erro reportado pelo Resend');
+                                throw new Error(detail);
                             }
 
                             // Mark as sent in Database
@@ -694,7 +698,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                             toast.success(`Lembrete enviado: ${event.title}`);
                         } catch (err: any) {
                             console.error('[Lembrete] Falha ao enviar lembrete:', err);
-                            const errorMsg = err.message || 'Erro desconhecido';
+                            const errorMsg = err.message || 'Erro de conexão';
                             toast.error(`Falha no lembrete: ${errorMsg}`);
                         }
                     }
