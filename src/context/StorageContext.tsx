@@ -586,42 +586,43 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             if (!isAdmin || events.length === 0 || members.length === 0) return;
 
             const today = new Date();
-            let eventsUpdated = false;
-
             for (const event of events) {
-                if (event.reminderDaysBefore && !event.reminderSent && event.start) {
-                    const daysLeft = differenceInDays(event.start, today);
+                // BUG FIX: check for existence, not truthy (0 is falsy)
+                if (event.reminderDaysBefore !== undefined && !event.reminderSent && event.start) {
+                    const eventDate = new Date(event.start);
+                    const daysLeft = differenceInDays(eventDate, today);
+
                     if (daysLeft <= event.reminderDaysBefore && daysLeft >= 0) {
                         try {
-                            // Logica de disparo usando Supabase + Resend
-                            if (true) { // Verificação removida pois a Secret fica no Supabase
-                                // Modo de Teste: Filtra apenas para administradores para evitar spam na transição/testes
-                                let recipients: string[] = [];
-                                if (event.responsibles && event.responsibles.length > 0) {
-                                    recipients = members
-                                        .filter(m => event.responsibles?.includes(m.name) && m.role.startsWith('admin_'))
-                                        .map(m => m.email)
-                                        .filter(Boolean);
-
-                                    // [TESTE] Se ninguém envolvido for admin, envia para quem está logado (você) para validar o sistema
-                                    if (recipients.length === 0) {
-                                        const me = members.find(m => m.name === currentUser);
-                                        if (me?.email) recipients = [me.email];
-                                    }
+                            // MODO DE TESTE: Para evitar spam durante homologação
+                            let recipients: string[] = [];
+                            
+                            // 1. Tentar pegar os e-mails dos responsáveis que são administradores
+                            if (event.responsibles && event.responsibles.length > 0) {
+                                recipients = members
+                                    .filter(m => event.responsibles?.includes(m.name) && m.role.startsWith('admin_'))
+                                    .map(m => m.email)
+                                    .filter(Boolean);
+                            } 
+                            
+                            // 2. Fallback: Se não houver nenhum admin responsável, envia para QUEM ESTÁ LOGADO (Você)
+                            if (recipients.length === 0) {
+                                const me = members.find(m => m.name === currentUser);
+                                if (me?.email) {
+                                    recipients = [me.email];
                                 } else {
+                                    // Último recurso: Pega todos os admins do sistema
                                     recipients = members
                                         .filter(m => m.role.startsWith('admin_'))
                                         .map(m => m.email)
                                         .filter(Boolean);
-                                }
+                            if (recipients.length === 0) continue;
 
-                                if (recipients.length === 0) continue;
+                            const adminEmail = recipients[0];
+                            const bccList = recipients.filter(e => e !== adminEmail).join(',');
 
-                                const adminEmail = recipients[0];
-                                const bccList = recipients.filter(e => e !== adminEmail).join(',');
-
-                                // Envia via Supabase Function (que usa Resend)
-                                const { data: resData, error: funcError } = await supabase.functions.invoke('resend-email', {
+                            // Envia via Supabase Function (que usa Resend)
+                            const { data: resData, error: funcError } = await supabase.functions.invoke('resend-email', {
                                     body: {
                                         to: recipients.length === 1 ? recipients[0] : recipients,
                                         bcc: bccList,

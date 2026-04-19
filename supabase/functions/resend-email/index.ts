@@ -20,6 +20,7 @@ serve(async (req) => {
     // PRECISAMOS usar o e-mail abaixo, senão o Resend bloqueia o envio.
     // O Resend só enviará para o e-mail do próprio dono da conta nesta fase.
     const fromEmail = "onboarding@resend.dev"; 
+    const { to, subject, html, bcc, from_name, template } = await req.json()
 
     console.log(`[Resend] Tentando enviar para: ${to}`);
 
@@ -27,19 +28,26 @@ serve(async (req) => {
       ? (Array.isArray(bcc) ? bcc : bcc.split(',')).map(e => e.trim()).filter(e => e !== '' && e !== (Array.isArray(to) ? to[0] : to))
       : [];
 
+    const payload: any = {
+      from: `${from_name || 'Portal PET'} <${fromEmail}>`,
+      to: Array.isArray(to) ? to : [to],
+      bcc: bccArray.length > 0 ? bccArray : undefined,
+    }
+
+    if (template) {
+      payload.template = template
+    } else {
+      payload.subject = subject
+      payload.html = html
+    }
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
-      body: JSON.stringify({
-        from: `${from_name || 'Portal PET'} <${fromEmail}>`,
-        to: Array.isArray(to) ? to : [to],
-        subject,
-        html,
-        bcc: bccArray.length > 0 ? bccArray : undefined,
-      }),
+      body: JSON.stringify(payload),
     })
 
     const resData = await res.json()
