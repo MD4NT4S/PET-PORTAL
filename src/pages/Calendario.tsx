@@ -146,9 +146,11 @@ export default function Calendario() {
                         <CalendarIcon className="h-6 w-6 text-primary-600" />
                         Agenda Geral
                      </h2>
-                     <Button onClick={() => setIsModalOpen(true)}>
-                         <Plus className="h-4 w-4 mr-2" /> Novo Evento
-                     </Button>
+                     {canManageCalendar && (
+                        <Button onClick={() => setIsModalOpen(true)}>
+                            <Plus className="h-4 w-4 mr-2" /> Novo Evento
+                        </Button>
+                     )}
                 </div>
                 
                 <div className="flex-1 overflow-visible">

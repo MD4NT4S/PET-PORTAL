@@ -932,6 +932,10 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     };
 
     const addEvent = async (event: CalendarEvent) => {
+        if (!canManageCalendar) {
+            toast.error('Apenas administradores podem criar eventos');
+            return;
+        }
         const { id, start, end, reminderDaysBefore, reminderSent, templateId, description, link, ...eventData } = event;
         const richData = JSON.stringify({ 
             start: start.toISOString(), 
@@ -956,6 +960,10 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     };
 
     const updateEvent = async (id: string, event: Partial<CalendarEvent>) => {
+        if (!canManageCalendar) {
+            toast.error('Apenas administradores podem editar eventos');
+            return;
+        }
         // Find existing to merge rich data
         const existing = events.find(e => e.id === id);
         if (!existing) return;
@@ -980,6 +988,10 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     };
 
     const removeEvent = async (id: string) => {
+        if (!canManageCalendar) {
+            toast.error('Apenas administradores podem remover eventos');
+            return;
+        }
         const { error } = await supabase.from('events').delete().eq('id', id);
         if (!error) {
             setEvents(prev => prev.filter(e => e.id !== id));
