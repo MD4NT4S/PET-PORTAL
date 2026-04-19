@@ -78,6 +78,7 @@ export default function Admin() {
     const [newNoticeTitle, setNewNoticeTitle] = useState('');
     const [newNoticeContent, setNewNoticeContent] = useState('');
     const [newNoticeType, setNewNoticeType] = useState<'info' | 'alert' | 'event'>('info');
+    const [noticeTarget, setNoticeTarget] = useState<'everyone' | 'admins' | 'me'>('admins');
 
     // Evaluation Viewer State
     const [evalViewMode, setEvalViewMode] = useState<'members' | 'months' | 'detail'>('members');
@@ -396,32 +397,30 @@ export default function Admin() {
         // 2. Send Emails (Fire and Forget)
         // Inicia envio via Supabase + Resend
         if (true) {
-            toast.info('Iniciando envio de emails...');
+            toast.info('Iniciando envio de e-mails...');
 
-            // Get all member emails
-            const recipients = members.map(m => m.email).filter(Boolean);
+            // Lógica de filtragem baseada na seleção
+            let recipients: string[] = [];
+            if (noticeTarget === 'me') {
+                const currentMember = members.find(m => m.name === currentUser);
+                recipients = currentMember?.email ? [currentMember.email] : [];
+            } else if (noticeTarget === 'admins') {
+                recipients = members.filter(m => m.role.startsWith('admin_')).map(m => m.email).filter(Boolean);
+            } else {
+                recipients = members.map(m => m.email).filter(Boolean);
+            }
+
             console.log('Sending emails to:', recipients);
 
-            // Send one email per recipient (Personalized)
-            // Note: Loops can hit rate limits on free tier.
-            // For production with many members, consider BCC or a backend loop.
-            // Here we limit to demonstrate or send to all if count is low.
-
-            // Strategy: Send individually to show "To Name" if possible, or just send generic.
-            // Let's try sending to each member.
-
-
-            // [FIX] Enviar um ÚNICO e-mail para o Admin com os outros em Cópia Oculta (BCC).
-            // Isso evita confirmações duplicadas para o administrador.
-
             try {
+                if (recipients.length === 0) {
+                    toast.warning('Nenhum destinatário encontrado com este filtro.');
+                    return;
+                }
+
                 // Filtra duplicatas
                 const uniqueRecipients = [...new Set(recipients)];
-                // currentUser é apenas o NOME (string), então precisamos achar o email dele na lista de membros ou usar um fallback
-                const currentMember = members.find(m => m.name === currentUser);
-                const adminEmail = currentMember?.email || uniqueRecipients[0];
-
-                // Cria lista BCC (todos exceto admin), unida por vírgula
+                const adminEmail = uniqueRecipients[0];
                 const bccList = uniqueRecipients.filter(e => e !== adminEmail).join(',');
 
                 // Envia UM ÚNICO E-MAIL via Supabase Function (Resend)
@@ -911,6 +910,46 @@ export default function Admin() {
                                                 className="text-blue-600"
                                             />
                                             Evento
+                                        </label>
+                                    </div>
+                                </div>
+                                <div className="border-t border-secondary-100 dark:border-secondary-800 pt-4">
+                                    <label className="text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2 block">
+                                        Enviar E-mail para:
+                                    </label>
+                                    <div className="flex flex-wrap gap-3">
+                                        <label className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-secondary-50 dark:hover:bg-secondary-900 border border-transparent hover:border-secondary-200">
+                                            <input
+                                                type="radio"
+                                                name="noticeTarget"
+                                                value="me"
+                                                checked={noticeTarget === 'me'}
+                                                onChange={() => setNoticeTarget('me')}
+                                                className="text-primary-600"
+                                            />
+                                            <span className="text-sm">Apenas Eu (Teste)</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-secondary-50 dark:hover:bg-secondary-900 border border-transparent hover:border-secondary-200">
+                                            <input
+                                                type="radio"
+                                                name="noticeTarget"
+                                                value="admins"
+                                                checked={noticeTarget === 'admins'}
+                                                onChange={() => setNoticeTarget('admins')}
+                                                className="text-primary-600"
+                                            />
+                                            <span className="text-sm">Todos Admins</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-secondary-50 dark:hover:bg-secondary-900 border border-transparent hover:border-secondary-200">
+                                            <input
+                                                type="radio"
+                                                name="noticeTarget"
+                                                value="everyone"
+                                                checked={noticeTarget === 'everyone'}
+                                                onChange={() => setNoticeTarget('everyone')}
+                                                className="text-primary-600"
+                                            />
+                                            <span className="text-sm">Todo o PET</span>
                                         </label>
                                     </div>
                                 </div>

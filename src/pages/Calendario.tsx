@@ -40,8 +40,8 @@ export default function Calendario() {
     // Checkboxes
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            const allMembers = members.filter(m => m.role === 'member').map(m => m.name);
-            setValue('responsibles', allMembers, { shouldValidate: true });
+            const allNames = memberSubList.map(m => m.name);
+            setValue('responsibles', allNames, { shouldValidate: true });
         } else {
             setValue('responsibles', [], { shouldValidate: true });
         }
@@ -49,7 +49,8 @@ export default function Calendario() {
 
     const selectedResponsibles = watch('responsibles') || [];
     const reminderEnabled = watch('reminderDaysEnabled');
-    const memberSubList = members.filter(m => m.role === 'member');
+    // Inclui membros e todos os tipos de admin na lista de seleção
+    const memberSubList = members.filter(m => m.role === 'member' || m.role.startsWith('admin_'));
     const isAllSelected = memberSubList.length > 0 && selectedResponsibles.length === memberSubList.length;
 
     // Handlers

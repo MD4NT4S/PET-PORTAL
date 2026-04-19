@@ -602,6 +602,12 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                         .filter(m => event.responsibles?.includes(m.name) && m.role.startsWith('admin_'))
                                         .map(m => m.email)
                                         .filter(Boolean);
+
+                                    // [TESTE] Se ninguém envolvido for admin, envia para quem está logado (você) para validar o sistema
+                                    if (recipients.length === 0) {
+                                        const me = members.find(m => m.name === currentUser);
+                                        if (me?.email) recipients = [me.email];
+                                    }
                                 } else {
                                     recipients = members
                                         .filter(m => m.role.startsWith('admin_'))
@@ -612,7 +618,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 if (recipients.length === 0) continue;
 
                                 const adminEmail = recipients[0];
-                                const bccList = recipients.join(',');
+                                const bccList = recipients.filter(e => e !== adminEmail).join(',');
 
                                 // Envia via Supabase Function (que usa Resend)
                                 const { data: resData, error: funcError } = await supabase.functions.invoke('resend-email', {
@@ -655,10 +661,10 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         // Delay checking slightly to ensure DB is fully loaded
         const timeout = setTimeout(() => {
             checkReminders();
-        }, 5000);
+        }, 2000);
 
         return () => clearTimeout(timeout);
-    }, [events, isAdmin, members]);
+    }, [events.length, isAdmin, members.length]);
 
     // Auth Persistence
     useEffect(() => {

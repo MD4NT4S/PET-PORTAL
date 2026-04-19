@@ -6,7 +6,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -15,18 +14,18 @@ serve(async (req) => {
     const { to, subject, html, bcc, from_name } = await req.json()
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
-    if (!RESEND_API_KEY) {
-      throw new Error('Missing RESEND_API_KEY')
-    }
+    if (!RESEND_API_KEY) throw new Error('Missing RESEND_API_KEY')
 
-    // Configuração do remetente. 
-    // Se você não tiver um domínio validado no Resend, 
-    // precisará usar "PET Hub <onboarding@resend.dev>" e só poderá enviar para você mesmo.
-    // Assim que validar o domínio no Resend, você deve alterar o e-mail abaixo.
-    const fromEmail = "contato@petcivil.site"; // Fallback ou padrão do seu domínio
-    const fallbackFrom = "PET Hub <onboarding@resend.dev>";
+    // IMPORTANTE: Enquanto o domínio não for validado no Resend, 
+    // PRECISAMOS usar o e-mail abaixo, senão o Resend bloqueia o envio.
+    // O Resend só enviará para o e-mail do próprio dono da conta nesta fase.
+    const fromEmail = "onboarding@resend.dev"; 
 
-    console.log(`Enviando e-mail para: ${to}`);
+    console.log(`[Resend] Tentando enviar para: ${to}`);
+
+    const bccArray = bcc 
+      ? (Array.isArray(bcc) ? bcc : bcc.split(',')).map(e => e.trim()).filter(e => e !== '' && e !== (Array.isArray(to) ? to[0] : to))
+      : [];
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -35,28 +34,31 @@ serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: from_name ? `${from_name} <${fromEmail}>` : fallbackFrom,
+        from: `${from_name || 'Portal PET'} <${fromEmail}>`,
         to: Array.isArray(to) ? to : [to],
         subject,
         html,
-        bcc: bcc ? (Array.isArray(bcc) ? bcc : bcc.split(',')) : undefined,
+        bcc: bccArray.length > 0 ? bccArray : undefined,
       }),
     })
 
     const resData = await res.json()
 
-    if (res.ok) {
-      return new Response(JSON.stringify(resData), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
-    } else {
+    if (!res.ok) {
+      console.error("[Resend Error]", resData);
       return new Response(JSON.stringify({ error: resData }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: res.status,
       })
     }
+
+    return new Response(JSON.stringify(resData), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+
   } catch (error) {
+    console.error("[Function Error]", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
