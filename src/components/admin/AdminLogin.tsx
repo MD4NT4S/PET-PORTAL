@@ -8,18 +8,22 @@ import { toast } from 'sonner';
 
 export default function AdminLogin() {
     const { loginUser } = useStorage();
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(false);
-
-    const handleSubmit = (e: React.FormEvent) => {
+ 
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const success = loginUser('admin', password, true);
-        if (success) {
+        setIsLoading(true);
+        const result = await loginUser(email, password);
+        if (result.success) {
             toast.success('Login realizado com sucesso!');
         } else {
             setError(true);
-            toast.error('Senha incorreta.');
+            toast.error(result.error || 'Credenciais incorretas.');
         }
+        setIsLoading(false);
     };
 
     return (
@@ -37,6 +41,16 @@ export default function AdminLogin() {
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <Input
+                            label="Email"
+                            type="email"
+                            placeholder="seu@email.com"
+                            value={email}
+                            onChange={(e) => {
+                                setEmail(e.target.value);
+                                setError(false);
+                            }}
+                        />
+                        <Input
                             label="Senha de Acesso"
                             type="password"
                             placeholder="••••••••"
@@ -47,8 +61,8 @@ export default function AdminLogin() {
                             }}
                             error={error ? "Senha incorreta" : undefined}
                         />
-                        <Button type="submit" className="w-full">
-                            Entrar
+                        <Button type="submit" className="w-full" disabled={isLoading}>
+                            {isLoading ? 'Autenticando...' : 'Entrar'}
                         </Button>
                     </form>
                 </CardContent>
