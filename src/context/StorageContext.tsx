@@ -281,6 +281,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_SITE_CONFIG);
     const [loadingConfig, setLoadingConfig] = useState(true);
 
+    const [currentUser, setCurrentUser] = useState<string | null>(null);
     const [userRole, setUserRole] = useState<'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null>(null);
 
     // --- Auth Management (Supabase Auth) ---
