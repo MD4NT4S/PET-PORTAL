@@ -25,12 +25,13 @@ interface EventForm {
     responsibles?: string[];
     reminderDaysEnabled: boolean;
     reminderDaysBefore: number;
+    templateId?: string; // NOVO: Campo para ID do Template
 }
 
 export default function Calendario() {
-    const { events, members, addEvent, removeEvent, canManageCalendar, siteConfig } = useStorage();
+    const { events, members, addEvent, removeEvent, canManageCalendar, siteConfig, currentUser } = useStorage();
     
-    // Modal & Form State
+    // ... (Modal & Form State)
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [viewEvent, setViewEvent] = useState<any>(null); // For Event popover/modal
     const { register, handleSubmit, reset, setValue, watch, control } = useForm<EventForm>({
@@ -49,8 +50,11 @@ export default function Calendario() {
 
     const selectedResponsibles = watch('responsibles') || [];
     const reminderEnabled = watch('reminderDaysEnabled');
-    // Inclui membros e todos os tipos de admin na lista de seleção
+    
+    // Inclui membros e todos os tipos de admin na lista de seleção. 
+    // Garante que o usuário logado sempre esteja disponível para seleção se for admin/membro.
     const memberSubList = members.filter(m => m.role === 'member' || m.role.startsWith('admin_'));
+    
     const isAllSelected = memberSubList.length > 0 && selectedResponsibles.length === memberSubList.length;
 
     // Handlers
@@ -80,6 +84,7 @@ export default function Calendario() {
             description: data.description,
             link: data.link,
             reminderDaysBefore: data.reminderDaysEnabled ? Number(data.reminderDaysBefore) : undefined,
+            templateId: data.reminderDaysEnabled ? data.templateId : undefined, // NOVO
             reminderSent: false
         });
         toast.success('Evento adicionado!');
@@ -385,15 +390,23 @@ export default function Calendario() {
                                     <label className="text-sm font-medium block text-secondary-700 dark:text-secondary-300 mb-1">
                                         Enviar e-mail para todos os responsáveis...
                                     </label>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Input 
+                                                type="number" 
+                                                min="0"
+                                                max="30"
+                                                className="w-20"
+                                                {...register('reminderDaysBefore', { required: reminderEnabled, valueAsNumber: true })}
+                                            />
+                                            <span className="text-sm">dias antes do evento</span>
+                                        </div>
                                         <Input 
-                                            type="number" 
-                                            min="0"
-                                            max="30"
-                                            className="w-20"
-                                            {...register('reminderDaysBefore', { required: reminderEnabled, valueAsNumber: true })}
+                                            label="Resend Template ID (Opcional)"
+                                            placeholder="Ex: 5678-abcd..."
+                                            className="mt-2"
+                                            {...register('templateId')}
                                         />
-                                        <span className="text-sm">dias antes do evento</span>
                                     </div>
                                     <p className="text-xs text-secondary-500 mt-2">
                                         O sistema disparará os convites automaticamente na casa dos dias informados.
@@ -426,7 +439,9 @@ export default function Calendario() {
                                             {...register('responsibles', { required: 'Selecione pelo menos um responsável' })}
                                             className="rounded border-secondary-300 text-primary-600 focus:ring-primary-600 h-4 w-4"
                                         />
-                                        <span className="text-sm text-secondary-700 dark:text-secondary-300">{member.name}</span>
+                                        <span className="text-sm text-secondary-700 dark:text-secondary-300">
+                                            {member.name} {member.name === currentUser && <span className="text-[10px] bg-primary-100 text-primary-700 px-1 rounded ml-1 font-bold">VOCÊ</span>}
+                                        </span>
                                     </label>
                                 ))}
                             </div>

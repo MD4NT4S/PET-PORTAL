@@ -235,6 +235,7 @@ export interface CalendarEvent {
     end?: Date;
     reminderDaysBefore?: number;
     reminderSent?: boolean;
+    templateId?: string;
     description?: string;
     link?: string;
 }
@@ -392,6 +393,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 end: richData.end ? new Date(richData.end) : undefined,
                                 reminderDaysBefore: richData.reminderDaysBefore,
                                 reminderSent: richData.reminderSent,
+                                templateId: richData.templateId, // NOVO
                                 description: richData.description,
                                 link: richData.link
                             };
@@ -598,6 +600,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
                     if (daysLeft <= event.reminderDaysBefore && daysLeft >= 0) {
                         try {
+                            console.log(`[Lembrete] Disparando para o evento: ${event.title}. Dias restantes: ${daysLeft}`);
+                            
                             let recipients: string[] = [];
                             
                             // 1. Tentar pegar os e-mails dos responsáveis que são administradores
@@ -613,50 +617,75 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 const me = members.find(m => m.name === currentUser);
                                 if (me?.email) {
                                     recipients = [me.email];
+                                    console.log(`[Lembrete] Enviando para o usuário logado como fallback: ${me.email}`);
                                 } else {
                                     // Último recurso: Pega todos os admins do sistema
                                     recipients = members
                                         .filter(m => m.role.startsWith('admin_'))
                                         .map(m => m.email)
                                         .filter(Boolean);
+                                    console.log(`[Lembrete] Enviando para todos os admins como último recurso: ${recipients.join(',')}`);
                                 }
                             }
 
-                            if (recipients.length === 0) continue;
+                            if (recipients.length === 0) {
+                                console.warn('[Lembrete] Nenhum destinatário encontrado para o evento:', event.title);
+                                continue;
+                            }
 
                             const adminEmail = recipients[0];
                             const bccList = recipients.filter(e => e !== adminEmail).join(',');
 
                             // Envia via Supabase Function
-                            const { error: funcError } = await supabase.functions.invoke('resend-email', {
-                                body: {
-                                    to: recipients.length === 1 ? recipients[0] : recipients,
-                                    bcc: bccList,
-                                    subject: `Lembrete: ${event.title}`,
-                                    html: `
-                                        <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
-                                            <h2 style="color: #3b82f6; margin-top: 0;">Lembrete de Evento</h2>
-                                            <p>Olá, este é um lembrete automático do seu <strong>Portal PET</strong>.</p>
-                                            <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                                                <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
-                                                <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString()}</p>
-                                                <p style="margin: 5px 0;"><strong>Status:</strong> Falta(m) ${daysLeft} dia(s)</p>
-                                                ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
-                                            </div>
-                                            <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
+                            const emailBody: any = {
+                                to: recipients.length === 1 ? recipients[0] : recipients,
+                                bcc: bccList,
+                                from_name: "Sistema PET (Automático)"
+                            };
+
+                            // Se tiver templateID, usa! Senão usa HTML padrão.
+                            if (event.templateId) {
+                                console.log(`[Lembrete] Usando template do Resend: ${event.templateId}`);
+                                emailBody.template = {
+                                    id: event.templateId,
+                                    variables: {
+                                        title: event.title,
+                                        date: new Date(event.start).toLocaleDateString(),
+                                        days_left: String(daysLeft),
+                                        description: event.description || ''
+                                    }
+                                };
+                            } else {
+                                console.log(`[Lembrete] Usando HTML padrão.`);
+                                emailBody.subject = `Lembrete: ${event.title}`;
+                                emailBody.html = `
+                                    <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
+                                        <h2 style="color: #3b82f6; margin-top: 0;">Lembrete de Evento</h2>
+                                        <p>Olá, este é um lembrete automático do seu <strong>Portal PET</strong>.</p>
+                                        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                            <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
+                                            <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString()}</p>
+                                            <p style="margin: 5px 0;"><strong>Status:</strong> Falta(m) ${daysLeft} dia(s)</p>
+                                            ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
                                         </div>
-                                    `,
-                                    from_name: "Sistema PET (Automático)"
-                                }
+                                        <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
+                                    </div>
+                                `;
+                            }
+
+                            const { error: funcError } = await supabase.functions.invoke('resend-email', {
+                                body: emailBody
                             });
 
                             if (funcError) throw funcError;
 
                             // Mark as sent in Database
                             await updateEvent(event.id, { reminderSent: true });
-                            console.log(`[Lembrete] E-mail enviado para o evento: ${event.title}`);
+                            console.log(`[Lembrete] E-mail enviado com sucesso para: ${event.title}`);
+                            toast.success(`Lembrete enviado: ${event.title}`);
                         } catch (err) {
                             console.error('[Lembrete] Falha ao enviar lembrete:', err);
+                            toast.error(`Falha no lembrete: ${event.title}`);
                         }
                     }
                 }
@@ -884,12 +913,13 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     };
 
     const addEvent = async (event: CalendarEvent) => {
-        const { id, start, end, reminderDaysBefore, reminderSent, description, link, ...eventData } = event;
+        const { id, start, end, reminderDaysBefore, reminderSent, templateId, description, link, ...eventData } = event;
         const richData = JSON.stringify({ 
             start: start.toISOString(), 
             end: end?.toISOString(), 
             reminderDaysBefore, 
             reminderSent, 
+            templateId,
             description,
             link
         });
@@ -912,12 +942,13 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         if (!existing) return;
 
         const updated = { ...existing, ...event };
-        const { id: _, start, end, reminderDaysBefore, reminderSent, description, link, ...eventData } = updated;
+        const { id: _, start, end, reminderDaysBefore, reminderSent, templateId, description, link, ...eventData } = updated;
         const richData = JSON.stringify({ 
             start: start.toISOString(), 
             end: end?.toISOString(), 
             reminderDaysBefore, 
             reminderSent, 
+            templateId,
             description,
             link
         });
