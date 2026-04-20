@@ -137,6 +137,7 @@ interface StorageContextType {
     sectors: Sector[];
     loans: Loan[]; // NEW
     currentUser: string | null;
+    isAuthLoading: boolean;
     isAdmin: boolean;
     canManageCalendar: boolean;
     userRole: 'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null;
@@ -288,6 +289,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     const [loadingConfig, setLoadingConfig] = useState(true);
 
     const [currentUser, setCurrentUser] = useState<string | null>(null);
+    const [isAuthLoading, setIsAuthLoading] = useState(true);
     const [userRole, setUserRole] = useState<'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null>(null);
 
     // --- Auth Management (Supabase Auth) ---
@@ -321,14 +323,25 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                     console.error("Profile fetch error:", err);
                     setCurrentUser(session.user.user_metadata?.full_name || session.user.email);
                     setUserRole(session.user.user_metadata?.role || 'member');
+                } finally {
+                    setIsAuthLoading(false);
                 }
             } else {
                 setCurrentUser(null);
                 setUserRole(null);
+                setIsAuthLoading(false);
             }
         });
 
-        return () => subscription.unsubscribe();
+        // Safety timeout just in case onAuthStateChange is delayed
+        const authSafetyTimeout = setTimeout(() => {
+            setIsAuthLoading(false);
+        }, 5000);
+
+        return () => {
+            subscription.unsubscribe();
+            clearTimeout(authSafetyTimeout);
+        };
     }, []);
 
     // Fix: Allow all admins to log in via AdminLogin
@@ -1611,10 +1624,11 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         removePhoto,
         notices,
         addNotice,
-        removeNotice
+        removeNotice,
+        isAuthLoading
     }), [
         tickets, feedbacks, evaluations, ombudsman, siteConfig, loadingConfig, isAdmin, userRole, currentUser,
-        members, events, sectors, loans, documents, canManageCalendar, photos, notices
+        members, events, sectors, loans, documents, canManageCalendar, photos, notices, isAuthLoading
     ]);
 
     return (

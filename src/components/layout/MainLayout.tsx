@@ -34,17 +34,25 @@ export function MainLayout() {
     });
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const location = useLocation();
-    const { currentUser, logoutUser, isAdmin, members } = useStorage();
+    const { currentUser, isAuthLoading, logoutUser, isAdmin, members } = useStorage();
     const navigate = useNavigate();
 
     // Get current member to show photo if available
     const currentMember = members.find(m => m.name === currentUser);
 
     useEffect(() => {
-        if (!currentUser) {
+        if (!isAuthLoading && !currentUser) {
             navigate('/login');
         }
-    }, [currentUser, navigate]);
+    }, [currentUser, isAuthLoading, navigate]);
+
+    if (isAuthLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-secondary-50 dark:bg-secondary-950">
+                <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"></div>
+            </div>
+        );
+    }
 
     useEffect(() => {
         if (isDarkMode) {
