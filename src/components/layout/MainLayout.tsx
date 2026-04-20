@@ -46,14 +46,6 @@ export function MainLayout() {
         }
     }, [currentUser, isAuthLoading, navigate]);
 
-    if (isAuthLoading) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-secondary-50 dark:bg-secondary-950">
-                <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"></div>
-            </div>
-        );
-    }
-
     useEffect(() => {
         if (isDarkMode) {
             document.documentElement.classList.add('dark');
@@ -63,6 +55,14 @@ export function MainLayout() {
             localStorage.setItem('pet-theme', 'light');
         }
     }, [isDarkMode]);
+
+    if (isAuthLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-secondary-50 dark:bg-secondary-950">
+                <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"></div>
+            </div>
+        );
+    }
 
     const handleLogout = () => {
         logoutUser();
