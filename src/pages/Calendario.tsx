@@ -350,13 +350,12 @@ export default function Calendario() {
                                     className="w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 dark:bg-secondary-950 dark:border-secondary-700"
                                 >
                                     <option value="">Nenhuma / Geral</option>
-                                    <option value="Gestão de Pessoas">Gestão de Pessoas</option>
-                                    <option value="Infraestrutura">Infraestrutura</option>
-                                    <option value="Pesquisa">Pesquisa</option>
-                                    <option value="Secretaria">Secretaria</option>
-                                    <option value="Divulgação">Divulgação</option>
-                                    <option value="Extensão">Extensão</option>
-                                    <option value="Ensino">Ensino</option>
+                                    <option value="Construção Civil">Construção Civil</option>
+                                    <option value="Estruturas">Estruturas</option>
+                                    <option value="Geotecnia">Geotecnia</option>
+                                    <option value="Transportes">Transportes</option>
+                                    <option value="Saneamento">Saneamento</option>
+                                    <option value="Recursos Hídricos">Recursos Hídricos</option>
                                 </select>
                             </div>
                         </div>
