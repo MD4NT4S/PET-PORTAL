@@ -312,7 +312,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                         .eq('id', session.user.id)
                         .single();
                         
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000));
                     
                     const response = await Promise.race([fetchProfile, timeoutPromise]) as any;
                     const profile = response?.data;
