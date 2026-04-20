@@ -411,14 +411,11 @@ export default function Calendario() {
                                 <label className="text-sm font-semibold text-purple-900 dark:text-purple-100 flex items-center gap-2">
                                     📝 Data Limite de Submissão / Publicação
                                 </label>
-                                <Input
+                                 <Input
                                     type="date"
                                     {...register('submissionDeadline')}
                                     placeholder="Selecione a data limite..."
                                 />
-                                <p className="text-xs text-secondary-500">
-                                    Essa data será enviada como variável <code className="bg-secondary-200 dark:bg-secondary-800 px-1 rounded">{'{{limit}}'}</code> no template do Resend.
-                                </p>
                             </div>
                         )}
 
