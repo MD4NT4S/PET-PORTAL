@@ -295,20 +295,32 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session) {
-                // Fetch profile to get real role and name
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
+                // Fetch profile with a timeout/safety check to prevent infinite hanging
+                try {
+                    const fetchProfile = supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+                        
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
+                    
+                    const response = await Promise.race([fetchProfile, timeoutPromise]) as any;
+                    const profile = response?.data;
+                    const profileError = response?.error;
 
-                if (profile) {
-                    setCurrentUser(profile.full_name || session.user.email);
-                    setUserRole(profile.role as any);
-                } else {
-                    // Fallback to metadata if profile not found yet
-                    setCurrentUser(session.user.user_metadata.full_name || session.user.email);
-                    setUserRole(session.user.user_metadata.role || 'member');
+                    if (profile && !profileError) {
+                        setCurrentUser(profile.full_name || session.user.email);
+                        setUserRole(profile.role as any);
+                    } else {
+                        // Fallback to metadata if profile not found or error
+                        setCurrentUser(session.user.user_metadata?.full_name || session.user.email);
+                        setUserRole(session.user.user_metadata?.role || 'member');
+                    }
+                } catch (err) {
+                    console.error("Profile fetch error:", err);
+                    setCurrentUser(session.user.user_metadata?.full_name || session.user.email);
+                    setUserRole(session.user.user_metadata?.role || 'member');
                 }
             } else {
                 setCurrentUser(null);
@@ -325,25 +337,28 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
     // --- Data Fetching ---
     const fetchCriticalData = async () => {
+        setLoadingConfig(true);
         try {
-            // Initiate essential requests for Home/Login page
-            const [siteConfigRes, noticesRes, photosRes, membersRes] = await Promise.all([
-                supabase.from('site_config').select('*').limit(1).single(),
-                supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(10),
-                supabase.from('photos').select('*').order('created_at', { ascending: false }).limit(20),
-                supabase.from('members').select('*').order('name')
+            const results = await Promise.allSettled([
+                supabase.from('site_config').select('*'),
+                supabase.from('notices').select('*').order('created_at', { ascending: false }),
+                supabase.from('photos').select('*').order('created_at', { ascending: false }),
+                supabase.from('members').select('*')
             ]);
 
-            // Process Site Config
-            if (siteConfigRes.data) {
-                setSiteConfig(siteConfigRes.data.config);
-            } else {
-                await supabase.from('site_config').insert({ config: DEFAULT_SITE_CONFIG });
+            const configRes = results[0].status === 'fulfilled' ? results[0].value : { data: null };
+            const noticesRes = results[1].status === 'fulfilled' ? results[1].value : { data: null };
+            const photosRes = results[2].status === 'fulfilled' ? results[2].value : { data: null };
+            const membersRes = results[3].status === 'fulfilled' ? results[3].value : { data: null };
+
+            // Process Config
+            if (configRes.data && configRes.data.length > 0) {
+                setSiteConfig(configRes.data[0].config);
             }
 
             // Process Notices
             if (noticesRes.data) {
-                setNotices(noticesRes.data.map(n => ({
+                setNotices(noticesRes.data.map((n: any) => ({
                     id: n.id,
                     title: n.title,
                     content: n.content,
@@ -355,7 +370,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
             // Process Photos (Limited for Home)
             if (photosRes.data) {
-                setPhotos(photosRes.data.map(p => ({
+                setPhotos(photosRes.data.map((p: any) => ({
                     id: p.id,
                     url: p.url,
                     description: p.description,
@@ -366,179 +381,198 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             }
 
             // Process Members (Essential for Login)
+            let loadedMembers: Member[] = [];
             if (membersRes.data) {
-                const loadedMembers = membersRes.data.map(m => ({ ...m, photoUrl: m.photo_url }));
+                loadedMembers = membersRes.data.map((m: any) => ({ ...m, photoUrl: m.photo_url }));
                 setMembers(loadedMembers);
             }
+            return loadedMembers;
 
         } catch (error) {
             console.error("Error fetching critical data:", error);
+            return [];
         } finally {
             setLoadingConfig(false);
         }
     };
 
-    const fetchSecondaryData = async () => {
-        try {
-            // Load remaining data in background
-            const [
-                ticketsRes,
-                feedbacksRes,
-                evaluationsRes,
-                ombudsmanRes,
-                eventsRes,
-                sectorsRes,
-                loansRes,
-                documentsRes
-            ] = await Promise.all([
-                supabase.from('tickets').select('*').order('created_at', { ascending: false }).limit(100),
-                supabase.from('feedbacks').select('*').order('created_at', { ascending: false }).limit(50),
-                supabase.from('evaluations').select('*').order('created_at', { ascending: false }).limit(100),
-                supabase.from('ombudsman').select('*').order('created_at', { ascending: false }).limit(50),
-                supabase.from('events').select('*'),
-                supabase.from('sectors').select('*, items:inventory_items(*)').order('display_order'),
-                supabase.from('loans').select('*').order('date', { ascending: false }).limit(100),
-                supabase.from('documents').select('*').order('created_at', { ascending: false })
-            ]);
+    const fetchSecondaryData = async (currentMembers: Member[]) => {
+        // Individual fetchers for robustness
+        const fetchers = [
+            {
+                name: 'tickets',
+                fn: () => supabase.from('tickets').select('*').order('created_at', { ascending: false }).limit(100),
+                setter: (data: any[]) => setTickets(data.map(t => ({ ...t, createdAt: t.created_at })))
+            },
+            {
+                name: 'feedbacks',
+                fn: () => supabase.from('feedbacks').select('*').order('created_at', { ascending: false }).limit(50),
+                setter: (data: any[]) => {
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                    const validFeedbacks = data.filter(f => new Date(f.created_at) > thirtyDaysAgo);
 
-            // Process Tickets
-            if (ticketsRes.data) setTickets(ticketsRes.data.map(t => ({ ...t, createdAt: t.created_at })));
-
-            // Process Feedbacks
-            if (feedbacksRes.data) {
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                const validFeedbacks = feedbacksRes.data.filter(f => new Date(f.created_at) > thirtyDaysAgo);
-                
-                // Cleanup old feedbacks silently
-                const expiredIds = feedbacksRes.data.filter(f => new Date(f.created_at) <= thirtyDaysAgo).map(f => f.id);
-                if (expiredIds.length > 0) {
-                    supabase.from('feedbacks').delete().in('id', expiredIds).then(() => console.log('Cleaned up old kudos'));
+                    // Cleanup old feedbacks silently
+                    const expiredIds = data.filter(f => new Date(f.created_at) <= thirtyDaysAgo).map(f => f.id);
+                    if (expiredIds.length > 0) {
+                        supabase.from('feedbacks').delete().in('id', expiredIds).then(() => { });
+                    }
+                    setFeedbacks(validFeedbacks.map(f => ({ ...f, createdAt: f.created_at })));
                 }
-                setFeedbacks(validFeedbacks.map(f => ({ ...f, createdAt: f.created_at })));
-            }
+            },
+            {
+                name: 'evaluations',
+                fn: () => supabase.from('evaluations').select('*').order('created_at', { ascending: false }).limit(100),
+                setter: (data: any[]) => setEvaluations(data.map(e => ({ ...e, createdAt: e.created_at })))
+            },
+            {
+                name: 'ombudsman',
+                fn: () => supabase.from('ombudsman').select('*').order('created_at', { ascending: false }).limit(50),
+                setter: (data: any[]) => setOmbudsman(data.map(o => ({ ...o, isAnonymous: o.is_anonymous, createdAt: o.created_at })))
+            },
+            {
+                name: 'events',
+                fn: () => supabase.from('events').select('*'),
+                setter: (data: any[]) => {
+                    const parsedEvents = data.map(e => {
+                        try {
+                            if (e.date) {
+                                let richData = null;
+                                if (typeof e.date === 'string' && e.date.startsWith('{')) {
+                                    richData = JSON.parse(e.date);
+                                } else if (typeof e.date === 'object') {
+                                    richData = e.date;
+                                }
 
-            // Process Evaluations
-            if (evaluationsRes.data) setEvaluations(evaluationsRes.data.map(e => ({ ...e, createdAt: e.created_at })));
+                                if (richData) {
+                                    return {
+                                        ...e,
+                                        start: new Date(richData.start),
+                                        end: richData.end ? new Date(richData.end) : undefined,
+                                        reminderDaysBefore: richData.reminderDaysBefore,
+                                        reminderSent: richData.reminderSent,
+                                        templateId: richData.templateId,
+                                        description: richData.description,
+                                        link: richData.link,
+                                        responsibles: richData.responsibles
+                                    };
+                                }
 
-            // Ombudsman processing...
-            if (ombudsmanRes.data) setOmbudsman(ombudsmanRes.data.map(o => ({ ...o, isAnonymous: o.is_anonymous, createdAt: o.created_at })));
-
-            // Admin Seeding (Background)
-            if (members.length > 0) {
-                const defaultAdmins = [
-                    { name: 'Administrador Geral', email: 'admin@pet.com', password: 'admin123', role: 'admin_master' },
-                    { name: 'Administrador Infra', email: 'infra@pet.com', password: 'infra123', role: 'admin_infra' },
-                    { name: 'Administrador GP', email: 'gp@pet.com', password: 'gp123', role: 'admin_gp' },
-                    { name: 'Administrador Secretaria', email: 'secretaria@pet.com', password: 'secretaria123', role: 'admin_secretaria' },
-                    { name: 'Administrador Divulgação', email: 'divulgacao@pet.com', password: 'divulgacao123', role: 'admin_divulgacao' },
-                    { name: 'Administrador Pesquisa', email: 'pesquisa@pet.com', password: 'pesquisa123', role: 'admin_pesquisa' }
-                ];
-
-                (async () => {
-                    for (const admin of defaultAdmins) {
-                        const exists = members.some(m => m.role === admin.role);
-                        if (!exists) {
-                            console.log(`Seeding default admin: ${admin.role}`);
-                            await supabase.from('members').insert({
-                                name: admin.name,
-                                email: admin.email,
-                                password: admin.password,
-                                role: admin.role,
-                                photo_url: null
-                            });
+                                if (typeof e.date === 'string') {
+                                    const parts = e.date.split('/');
+                                    if (parts.length >= 2) {
+                                        const day = parseInt(parts[0]);
+                                        const month = parseInt(parts[1]) - 1;
+                                        const year = parts[2] ? parseInt(parts[2]) : new Date().getFullYear();
+                                        return {
+                                            ...e,
+                                            start: new Date(year, month, day, 9, 0),
+                                        };
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Error parsing event date:", err);
                         }
-                    }
-                })();
+                        return { ...e, start: new Date() };
+                    });
+                    setEvents(parsedEvents);
+                }
+            },
+            {
+                name: 'sectors',
+                fn: () => supabase.from('sectors').select('*, items:inventory_items(*)').order('display_order'),
+                setter: (data: any[]) => {
+                    const formattedSectors: Sector[] = data.map((s: any) => ({
+                        id: s.id,
+                        name: s.name,
+                        category: s.category,
+                        displayOrder: s.display_order,
+                        items: s.items?.map((i: any) => ({
+                            id: i.id,
+                            name: i.name,
+                            code: i.code,
+                            quantity: i.quantity,
+                            status: i.status
+                        })) || []
+                    }));
+                    setSectors(formattedSectors);
+                }
+            },
+            {
+                name: 'loans',
+                fn: () => supabase.from('loans').select('*').order('date', { ascending: false }).limit(100),
+                setter: (data: any[]) => {
+                    setLoans(data.map(l => {
+                        let actualReturnDate = undefined;
+                        let cleanNotes = l.admin_notes;
+                        if (l.admin_notes && l.admin_notes.includes('[RETURN_DATE:')) {
+                            const match = l.admin_notes.match(/\[RETURN_DATE:([^\]]+)\](.*)/s);
+                            if (match) {
+                                actualReturnDate = match[1];
+                                cleanNotes = match[2].trim() || null;
+                            }
+                        }
+                        return {
+                            ...l,
+                            itemId: l.item_id,
+                            userId: l.user_id,
+                            userName: l.user_name,
+                            itemName: l.item_name,
+                            expectedReturnDate: l.expected_return_date,
+                            actualReturnDate,
+                            withdrawalPhotoUrl: l.withdrawal_photo_url,
+                            returnPhotoUrl: l.return_photo_url,
+                            adminNotes: cleanNotes
+                        };
+                    }));
+                }
+            },
+            {
+                name: 'documents',
+                fn: () => supabase.from('documents').select('*').order('created_at', { ascending: false }),
+                setter: (data: any[]) => setDocuments(data.map(d => ({ ...d, createdAt: d.created_at })))
             }
+        ];
 
-            // Process Events
-            if (eventsRes.data) {
-                const parsedEvents = eventsRes.data.map(e => {
+        // Execute all in parallel but handle failures individually
+        await Promise.allSettled(fetchers.map(async (f) => {
+            try {
+                const { data, error } = await f.fn();
+                if (error) throw error;
+                if (data) f.setter(data);
+            } catch (err) {
+                console.error(`Error fetching ${f.name}:`, err);
+            }
+        }));
+
+        // Seeding check (only once)
+        if (currentMembers.length > 0) {
+            const defaultAdmins = [
+                { name: 'Administrador Geral', email: 'admin@pet.com', password: 'admin123', role: 'admin_master' },
+                { name: 'Administrador Infra', email: 'infra@pet.com', password: 'infra123', role: 'admin_infra' },
+                { name: 'Administrador GP', email: 'gp@pet.com', password: 'gp123', role: 'admin_gp' },
+                { name: 'Administrador Secretaria', email: 'secretaria@pet.com', password: 'secretaria123', role: 'admin_secretaria' },
+                { name: 'Administrador Divulgação', email: 'divulgacao@pet.com', password: 'divulgacao123', role: 'admin_divulgacao' },
+                { name: 'Administrador Pesquisa', email: 'pesquisa@pet.com', password: 'pesquisa123', role: 'admin_pesquisa' }
+            ];
+
+            for (const admin of defaultAdmins) {
+                const exists = currentMembers.some(m => m.role === admin.role);
+                if (!exists) {
                     try {
-                        if (e.date && e.date.startsWith('{')) {
-                            const richData = JSON.parse(e.date);
-                            return {
-                                ...e,
-                                start: new Date(richData.start),
-                                end: richData.end ? new Date(richData.end) : undefined,
-                                reminderDaysBefore: richData.reminderDaysBefore,
-                                reminderSent: richData.reminderSent,
-                                templateId: richData.templateId,
-                                description: richData.description,
-                                link: richData.link
-                            };
-                        }
-                    } catch {}
-                    
-                    if (typeof e.date === 'string') {
-                        const parts = e.date.split('/');
-                        if (parts.length >= 2) {
-                            const day = parseInt(parts[0]);
-                            const month = parseInt(parts[1]) - 1;
-                            const year = parts[2] ? parseInt(parts[2]) : new Date().getFullYear();
-                            return {
-                                ...e,
-                                start: new Date(year, month, day, 9, 0),
-                            };
-                        }
+                        await supabase.from('members').insert({
+                            name: admin.name,
+                            email: admin.email,
+                            password: admin.password,
+                            role: admin.role,
+                            photo_url: null
+                        });
+                    } catch (e) {
+                        console.error('Error seeding admin:', e);
                     }
-                    return { ...e, start: new Date() };
-                });
-                setEvents(parsedEvents);
+                }
             }
-
-            // Process Sectors
-            if (sectorsRes.data) {
-                const formattedSectors: Sector[] = sectorsRes.data.map((s: any) => ({
-                    id: s.id,
-                    name: s.name,
-                    category: s.category,
-                    displayOrder: s.display_order,
-                    items: s.items?.map((i: any) => ({
-                        id: i.id,
-                        name: i.name,
-                        code: i.code,
-                        quantity: i.quantity,
-                        status: i.status
-                    })) || []
-                }));
-                setSectors(formattedSectors);
-            }
-
-            // Process Loans
-            if (loansRes.data) {
-                setLoans(loansRes.data.map(l => {
-                    let actualReturnDate = undefined;
-                    let cleanNotes = l.admin_notes;
-                    if (l.admin_notes && l.admin_notes.includes('[RETURN_DATE:')) {
-                        const match = l.admin_notes.match(/\[RETURN_DATE:([^\]]+)\](.*)/s);
-                        if (match) {
-                            actualReturnDate = match[1];
-                            cleanNotes = match[2].trim() || null;
-                        }
-                    }
-
-                    return {
-                        ...l,
-                        itemId: l.item_id,
-                        userId: l.user_id,
-                        userName: l.user_name,
-                        itemName: l.item_name,
-                        expectedReturnDate: l.expected_return_date,
-                        actualReturnDate,
-                        withdrawalPhotoUrl: l.withdrawal_photo_url,
-                        returnPhotoUrl: l.return_photo_url,
-                        adminNotes: cleanNotes
-                    };
-                }));
-            }
-
-            // Process Documents
-            if (documentsRes.data) setDocuments(documentsRes.data.map(d => ({ ...d, createdAt: d.created_at })));
-
-        } catch (error) {
-            console.error("Error fetching secondary data:", error);
         }
     };
 
@@ -615,8 +649,12 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const initialize = async () => {
-            await fetchCriticalData();
-            fetchSecondaryData(); // Load the rest in background
+            try {
+                const loadedMembers = await fetchCriticalData();
+                await fetchSecondaryData(loadedMembers);
+            } catch (err) {
+                console.error("Initialization failed:", err);
+            }
         };
         initialize();
 
@@ -657,17 +695,17 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                     if (daysLeft <= event.reminderDaysBefore && daysLeft >= 0) {
                         try {
                             console.log(`[Lembrete] Disparando para o evento: ${event.title}. Dias restantes: ${daysLeft}`);
-                            
+
                             let recipients: string[] = [];
-                            
+
                             // 1. Tentar pegar os e-mails dos responsáveis que são administradores
                             if (event.responsibles && event.responsibles.length > 0) {
                                 recipients = members
                                     .filter(m => event.responsibles?.includes(m.name) && m.role.startsWith('admin_'))
                                     .map(m => m.email)
                                     .filter(Boolean);
-                            } 
-                            
+                            }
+
                             // 2. Fallback: Se não houver nenhum admin responsável, envia para QUEM ESTÁ LOGADO (Você)
                             if (recipients.length === 0) {
                                 const me = members.find(m => m.name === currentUser);
@@ -707,10 +745,16 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 emailBody.template = {
                                     id: cleanTemplateId,
                                     variables: {
-                                        title: event.title,
-                                        date: new Date(event.start).toLocaleDateString(),
-                                        days_left: String(daysLeft),
-                                        description: event.description || ''
+                                        responsavel: recipients.length === 1 ? members.find(m => m.email === recipients[0])?.name || 'Membro' : 'Equipe',
+                                        evento: event.title,
+                                        title: event.title, // keeping for compatibility
+                                        date: new Date(event.start).toLocaleDateString('pt-BR'),
+                                        data: new Date(event.start).toLocaleDateString('pt-BR'),
+                                        horario: new Date(event.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                                        link: event.link || 'Não informado',
+                                        descricao: event.description || 'Sem descrição',
+                                        description: event.description || '', // keeping for compatibility
+                                        days_left: String(daysLeft)
                                     }
                                 };
                             } else {
@@ -741,7 +785,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                             // Se houver erro de rede/função OU erro reportado no corpo (mesmo com status 200)
                             if (funcError || (resData && resData.error)) {
                                 console.error('[Lembrete] Erro detectado no envio:', { funcError, resData });
-                                
+
                                 let errorMessage = 'Erro no envio';
 
                                 if (resData && resData.message) {
@@ -992,7 +1036,10 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             toast.error('Apenas administradores podem criar eventos');
             return;
         }
-        const { id, start, end, reminderDaysBefore, reminderSent, templateId, description, link, ...eventData } = event;
+        const { id, start, end, reminderDaysBefore, reminderSent, templateId, description, link, responsibles, ...eventData } = event;
+        
+        // REVERT to storing all rich data as JSON in the `date` column, 
+        // because the events table might NOT have separate columns for description/link/responsibles.
         const richData = JSON.stringify({ 
             start: start.toISOString(), 
             end: end?.toISOString(), 
@@ -1000,17 +1047,20 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             reminderSent, 
             templateId,
             description,
-            link
+            link,
+            responsibles
         });
         
         const dbEvent = { ...eventData, date: richData };
 
         const { data: inserted, error } = await supabase.from('events').insert(dbEvent).select().single();
         if (error) {
-            toast.error('Erro ao adicionar evento');
+            console.error('Error adding event:', error);
+            toast.error(`Erro do banco: ${error.message}`);
             return;
         }
         if (inserted) {
+            // Update state with the proper event object including start/end Dates
             setEvents(prev => [...prev, { ...event, id: inserted.id }]);
         }
     };
@@ -1025,15 +1075,16 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         if (!existing) return;
 
         const updated = { ...existing, ...event };
-        const { id: _, start, end, reminderDaysBefore, reminderSent, templateId, description, link, ...eventData } = updated;
-        const richData = JSON.stringify({ 
-            start: start.toISOString(), 
-            end: end?.toISOString(), 
-            reminderDaysBefore, 
-            reminderSent, 
+        const { id: _, start, end, reminderDaysBefore, reminderSent, templateId, description, link, responsibles, ...eventData } = updated;
+        const richData = JSON.stringify({
+            start: start.toISOString(),
+            end: end?.toISOString(),
+            reminderDaysBefore,
+            reminderSent,
             templateId,
             description,
-            link
+            link,
+            responsibles
         });
 
         const dbEvent = { ...eventData, date: richData };
@@ -1200,14 +1251,14 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
         if (loanError) {
             console.error('Error creating loan:', loanError);
-            
+
             // Critical fix: Rollback inventory change to prevent state drift
-            const rollbackQuantity = item.quantity; 
+            const rollbackQuantity = item.quantity;
             await supabase.from('inventory_items').update({
-                 quantity: rollbackQuantity, 
-                 status: item.status 
+                quantity: rollbackQuantity,
+                status: item.status
             }).eq('id', itemId);
-            
+
             toast.error('Erro ao registrar empréstimo, as alterações de estoque foram desfeitas.');
             return false;
         } else {
@@ -1559,7 +1610,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         addNotice,
         removeNotice
     }), [
-        tickets, feedbacks, evaluations, ombudsman, siteConfig, loadingConfig, isAdmin, userRole, currentUser, 
+        tickets, feedbacks, evaluations, ombudsman, siteConfig, loadingConfig, isAdmin, userRole, currentUser,
         members, events, sectors, loans, documents, canManageCalendar, photos, notices
     ]);
 
