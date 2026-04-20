@@ -326,11 +326,12 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     // --- Data Fetching ---
     const fetchCriticalData = async () => {
         try {
-            // Initiate essential requests for Home page
-            const [siteConfigRes, noticesRes, photosRes] = await Promise.all([
+            // Initiate essential requests for Home/Login page
+            const [siteConfigRes, noticesRes, photosRes, membersRes] = await Promise.all([
                 supabase.from('site_config').select('*').limit(1).single(),
                 supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(10),
-                supabase.from('photos').select('*').order('created_at', { ascending: false }).limit(20)
+                supabase.from('photos').select('*').order('created_at', { ascending: false }).limit(20),
+                supabase.from('members').select('*').order('name')
             ]);
 
             // Process Site Config
@@ -364,6 +365,12 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 })));
             }
 
+            // Process Members (Essential for Login)
+            if (membersRes.data) {
+                const loadedMembers = membersRes.data.map(m => ({ ...m, photoUrl: m.photo_url }));
+                setMembers(loadedMembers);
+            }
+
         } catch (error) {
             console.error("Error fetching critical data:", error);
         } finally {
@@ -379,7 +386,6 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 feedbacksRes,
                 evaluationsRes,
                 ombudsmanRes,
-                membersRes,
                 eventsRes,
                 sectorsRes,
                 loansRes,
@@ -389,7 +395,6 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 supabase.from('feedbacks').select('*').order('created_at', { ascending: false }).limit(50),
                 supabase.from('evaluations').select('*').order('created_at', { ascending: false }).limit(100),
                 supabase.from('ombudsman').select('*').order('created_at', { ascending: false }).limit(50),
-                supabase.from('members').select('*').order('name'),
                 supabase.from('events').select('*'),
                 supabase.from('sectors').select('*, items:inventory_items(*)').order('display_order'),
                 supabase.from('loans').select('*').order('date', { ascending: false }).limit(100),
@@ -416,14 +421,11 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             // Process Evaluations
             if (evaluationsRes.data) setEvaluations(evaluationsRes.data.map(e => ({ ...e, createdAt: e.created_at })));
 
-            // Process Ombudsman
+            // Ombudsman processing...
             if (ombudsmanRes.data) setOmbudsman(ombudsmanRes.data.map(o => ({ ...o, isAnonymous: o.is_anonymous, createdAt: o.created_at })));
 
-            // Process Members & Seed Admins
-            if (membersRes.data) {
-                const loadedMembers = membersRes.data.map(m => ({ ...m, photoUrl: m.photo_url }));
-                setMembers(loadedMembers);
-
+            // Admin Seeding (Background)
+            if (members.length > 0) {
                 const defaultAdmins = [
                     { name: 'Administrador Geral', email: 'admin@pet.com', password: 'admin123', role: 'admin_master' },
                     { name: 'Administrador Infra', email: 'infra@pet.com', password: 'infra123', role: 'admin_infra' },
@@ -433,10 +435,9 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                     { name: 'Administrador Pesquisa', email: 'pesquisa@pet.com', password: 'pesquisa123', role: 'admin_pesquisa' }
                 ];
 
-                // Check and seed defaults asynchronously
                 (async () => {
                     for (const admin of defaultAdmins) {
-                        const exists = loadedMembers.some(m => m.role === admin.role);
+                        const exists = members.some(m => m.role === admin.role);
                         if (!exists) {
                             console.log(`Seeding default admin: ${admin.role}`);
                             await supabase.from('members').insert({
