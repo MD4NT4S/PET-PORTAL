@@ -716,6 +716,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 console.warn('[Lembrete] Nenhum destinatário encontrado para o evento:', event.title);
                                 continue;
                             }
+                            const adminEmail = recipients[0];
+                            const bccList = recipients.filter(e => e !== adminEmail).join(',');
 
                             // Envia via Supabase Function (Resend)
                             const emailBody: any = {
