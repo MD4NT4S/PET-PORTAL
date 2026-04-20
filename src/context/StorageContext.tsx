@@ -354,6 +354,17 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             // Process Config
             if (configRes.data && configRes.data.length > 0) {
                 setSiteConfig(configRes.data[0].config);
+            } else {
+                // FALLBACK IF EMPTY OR ERROR to prevent white screen of death
+                setSiteConfig({
+                    heroTitle: "Portal PET - CAP",
+                    heroSubtitle: "Centro de Apoio e Planejamento",
+                    heroDescription: "Gerencie recursos, eventos e solicitações do Programa de Educação Tutorial de forma eficiente.",
+                    aboutText: "O Portal PET é uma plataforma desenvolvida para facilitar a gestão interna do grupo.",
+                    missionText: "Apoiar o desenvolvimento acadêmico, profissional e pessoal dos alunos.",
+                    visionText: "Ser referência em gestão e organização dentro do programa.",
+                    values: ["Ética", "Trabalho em Equipe", "Inovação", "Comprometimento"]
+                });
             }
 
             // Process Notices
