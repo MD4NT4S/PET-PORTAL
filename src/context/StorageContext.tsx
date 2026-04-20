@@ -562,34 +562,6 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             }
         }));
 
-        // Seeding check (only once)
-        if (currentMembers.length > 0) {
-            const defaultAdmins = [
-                { name: 'Administrador Geral', email: 'admin@pet.com', password: 'admin123', role: 'admin_master' },
-                { name: 'Administrador Infra', email: 'infra@pet.com', password: 'infra123', role: 'admin_infra' },
-                { name: 'Administrador GP', email: 'gp@pet.com', password: 'gp123', role: 'admin_gp' },
-                { name: 'Administrador Secretaria', email: 'secretaria@pet.com', password: 'secretaria123', role: 'admin_secretaria' },
-                { name: 'Administrador Divulgação', email: 'divulgacao@pet.com', password: 'divulgacao123', role: 'admin_divulgacao' },
-                { name: 'Administrador Pesquisa', email: 'pesquisa@pet.com', password: 'pesquisa123', role: 'admin_pesquisa' }
-            ];
-
-            for (const admin of defaultAdmins) {
-                const exists = currentMembers.some(m => m.role === admin.role);
-                if (!exists) {
-                    try {
-                        await supabase.from('members').insert({
-                            name: admin.name,
-                            email: admin.email,
-                            password: admin.password,
-                            role: admin.role,
-                            photo_url: null
-                        });
-                    } catch (e) {
-                        console.error('Error seeding admin:', e);
-                    }
-                }
-            }
-        }
     };
 
     const fetchInventoryData = async () => {
