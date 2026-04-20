@@ -739,7 +739,9 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                         date: new Date(event.start).toLocaleDateString('pt-BR'),
                                         area: event.area || 'Geral',
                                         link: event.link || '',
-                                        timeto: String(daysLeft)
+                                        timeto: String(daysLeft),
+                                        timeto_word: daysLeft === 1 ? 'dia' : 'dias',
+                                        timeto_verb: daysLeft === 1 ? 'Falta' : 'Faltam'
                                     }
                                 };
                             } else {
