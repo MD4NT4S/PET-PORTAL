@@ -249,6 +249,7 @@ export interface CalendarEvent {
     description?: string;
     link?: string;
     area?: string;
+    submissionDeadline?: string;
 }
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -479,7 +480,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                         description: richData.description,
                                         link: richData.link,
                                         area: richData.area,
-                                        responsibles: richData.responsibles
+                                        responsibles: richData.responsibles,
+                                        submissionDeadline: richData.submissionDeadline
                                     };
                                 }
 
@@ -700,7 +702,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                         link: event.link || '',
                         timeto: String(daysLeft),
                         timeto_word: daysLeft === 1 ? 'dia' : 'dias',
-                        timeto_verb: daysLeft === 1 ? 'Falta' : 'Faltam'
+                        timeto_verb: daysLeft === 1 ? 'Falta' : 'Faltam',
+                        limit: event.submissionDeadline ? new Date(event.submissionDeadline + 'T00:00:00').toLocaleDateString('pt-BR') : ''
                     }
                 };
             } else {
@@ -1067,7 +1070,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             toast.error('Apenas administradores podem criar eventos');
             return;
         }
-        const { id, start, end, reminderSchedule, remindersSent, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, ...eventData } = event;
+        const { id, start, end, reminderSchedule, remindersSent, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, submissionDeadline, ...eventData } = event;
         
         // REVERT to storing all rich data as JSON in the `date` column, 
         // because the events table might NOT have separate columns for description/link/responsibles.
@@ -1082,7 +1085,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             description,
             link,
             area,
-            responsibles
+            responsibles,
+            submissionDeadline
         });
         
         const dbEvent = { ...eventData, date: richData };
@@ -1109,7 +1113,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         if (!existing) return;
 
         const updated = { ...existing, ...event };
-        const { id: _, start, end, reminderSchedule, remindersSent, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, ...eventData } = updated;
+        const { id: _, start, end, reminderSchedule, remindersSent, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, submissionDeadline, ...eventData } = updated;
         const richData = JSON.stringify({
             start: start.toISOString(),
             end: end?.toISOString(),
@@ -1121,7 +1125,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             description,
             link,
             area,
-            responsibles
+            responsibles,
+            submissionDeadline
         });
 
         const dbEvent = { ...eventData, date: richData };

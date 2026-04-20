@@ -29,6 +29,7 @@ interface EventForm {
     reminder1day: boolean;
     templateId?: string;
     area?: string;
+    submissionDeadline?: string;
 }
 
 export default function Calendario() {
@@ -53,6 +54,7 @@ export default function Calendario() {
 
     const selectedResponsibles = watch('responsibles') || [];
     const reminderEnabled = watch('reminderDaysEnabled');
+    const selectedType = watch('type');
     
     // Inclui membros e todos os tipos de admin na lista de seleção. 
     // Garante que o usuário logado sempre esteja disponível para seleção se for admin/membro.
@@ -103,6 +105,7 @@ export default function Calendario() {
             remindersSent: {},
             templateId: data.reminderDaysEnabled ? data.templateId : undefined,
             area: data.area,
+            submissionDeadline: data.type === 'event' && data.submissionDeadline ? data.submissionDeadline : undefined,
         });
         toast.success('Evento adicionado!');
         reset();
@@ -239,6 +242,16 @@ export default function Calendario() {
                                     <p className="text-sm border-l-2 border-secondary-200 pl-3">
                                         Área: {viewEvent.extendedProps.area}
                                     </p>
+                                </div>
+                             )}
+
+                             {viewEvent.extendedProps.submissionDeadline && (
+                                <div className="flex items-start gap-3 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/10 p-3 rounded-lg border border-purple-100 dark:border-purple-900/50">
+                                    <CalendarIcon className="w-5 h-5 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-medium">Data Limite de Publicação</p>
+                                        <p className="text-sm">{new Date(viewEvent.extendedProps.submissionDeadline + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                                    </div>
                                 </div>
                              )}
 
@@ -391,6 +404,23 @@ export default function Calendario() {
                                 </select>
                             </div>
                         </div>
+
+                        {/* Data Limite de Publicação — só aparece para Evento / Capacitação */}
+                        {selectedType === 'event' && (
+                            <div className="p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-900/30 space-y-2">
+                                <label className="text-sm font-semibold text-purple-900 dark:text-purple-100 flex items-center gap-2">
+                                    📝 Data Limite de Submissão / Publicação
+                                </label>
+                                <Input
+                                    type="date"
+                                    {...register('submissionDeadline')}
+                                    placeholder="Selecione a data limite..."
+                                />
+                                <p className="text-xs text-secondary-500">
+                                    Essa data será enviada como variável <code className="bg-secondary-200 dark:bg-secondary-800 px-1 rounded">{'{{limit}}'}</code> no template do Resend.
+                                </p>
+                            </div>
+                        )}
 
                         <Input
                             label="Link da Reunião/Local (Opcional)"
