@@ -238,6 +238,11 @@ export interface CalendarEvent {
     // Rich properties (serialized into `date` for DB compatibility)
     start: Date;
     end?: Date;
+    // NEW: Multi-period reminder system (array of days-before, e.g. [30, 7, 1])
+    reminderSchedule?: number[];
+    // Tracks which periods have already been sent { "30": true, "7": true }
+    remindersSent?: Record<string, boolean>;
+    // LEGACY (kept for backward compat with old events)
     reminderDaysBefore?: number;
     reminderSent?: boolean;
     templateId?: string;
@@ -466,6 +471,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                         ...e,
                                         start: new Date(richData.start),
                                         end: richData.end ? new Date(richData.end) : undefined,
+                                        reminderSchedule: richData.reminderSchedule,
+                                        remindersSent: richData.remindersSent || {},
                                         reminderDaysBefore: richData.reminderDaysBefore,
                                         reminderSent: richData.reminderSent,
                                         templateId: richData.templateId,
@@ -667,6 +674,96 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     useEffect(() => {
+        const sendReminderEmail = async (event: CalendarEvent, daysLeft: number, recipients: string[]) => {
+            const adminEmail = recipients[0];
+            const bccList = recipients.filter(e => e !== adminEmail).join(',');
+
+            // Envia via Supabase Function (Resend)
+            const emailBody: any = {
+                to: recipients.length === 1 ? recipients[0] : recipients,
+                bcc: bccList,
+                from_name: "Sistema PET (Automático)",
+                subject: `Lembrete: ${event.title}`
+            };
+
+            // Se tiver templateID, usa! Senão usa HTML padrão.
+            if (event.templateId) {
+                const cleanTemplateId = event.templateId.trim();
+                console.log(`[Lembrete] Usando template do Resend: ${cleanTemplateId}`);
+                emailBody.template = {
+                    id: cleanTemplateId,
+                    variables: {
+                        name: recipients.length === 1 ? members.find(m => m.email === recipients[0])?.name || 'Membro' : 'Participante',
+                        event: event.title,
+                        date: new Date(event.start).toLocaleDateString('pt-BR'),
+                        area: event.area || 'Geral',
+                        link: event.link || '',
+                        timeto: String(daysLeft),
+                        timeto_word: daysLeft === 1 ? 'dia' : 'dias',
+                        timeto_verb: daysLeft === 1 ? 'Falta' : 'Faltam'
+                    }
+                };
+            } else {
+                const periodLabel = daysLeft === 0 ? 'Hoje!' : daysLeft === 1 ? 'Amanhã!' : `Falta(m) ${daysLeft} dia(s)`;
+                emailBody.subject = `Lembrete: ${event.title} — ${periodLabel}`;
+                emailBody.html = `
+                    <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
+                        <h2 style="color: #3b82f6; margin-top: 0;">Lembrete de Evento</h2>
+                        <p>Olá, este é um lembrete automático do seu <strong>Portal PET</strong>.</p>
+                        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                            <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
+                            <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString('pt-BR')}</p>
+                            <p style="margin: 5px 0;"><strong>Status:</strong> ${periodLabel}</p>
+                            ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
+                        </div>
+                        <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
+                    </div>
+                `;
+            }
+
+            const response = await supabase.functions.invoke('resend-email', {
+                body: emailBody
+            });
+
+            const { data: resData, error: funcError } = response;
+
+            if (funcError || (resData && resData.error)) {
+                console.error('[Lembrete] Erro detectado no envio via Resend:', { funcError, resData });
+                let errorMessage = 'Erro no envio';
+                if (resData && resData.message) {
+                    errorMessage = resData.message;
+                } else if (funcError) {
+                    errorMessage = funcError.message;
+                }
+                throw new Error(errorMessage);
+            }
+        };
+
+        const getRecipients = (event: CalendarEvent): string[] => {
+            let recipients: string[] = [];
+
+            if (event.responsibles && event.responsibles.length > 0) {
+                recipients = members
+                    .filter(m => event.responsibles?.includes(m.name) && m.role.startsWith('admin_'))
+                    .map(m => m.email)
+                    .filter(Boolean);
+            }
+
+            if (recipients.length === 0) {
+                const me = members.find(m => m.name === currentUser);
+                if (me?.email) {
+                    recipients = [me.email];
+                } else {
+                    recipients = members
+                        .filter(m => m.role.startsWith('admin_'))
+                        .map(m => m.email)
+                        .filter(Boolean);
+                }
+            }
+
+            return recipients;
+        };
+
         const checkReminders = async () => {
             if (!isAdmin || events.length === 0 || members.length === 0) return;
 
@@ -674,123 +771,70 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             today.setHours(0, 0, 0, 0);
 
             for (const event of events) {
-                // BUG FIX: check for existence, not just truthy (0 is falsy)
-                if (event.reminderDaysBefore !== undefined && !event.reminderSent && event.start) {
-                    const eventDate = new Date(event.start);
-                    eventDate.setHours(0, 0, 0, 0);
+                if (!event.start) continue;
 
-                    // differenceInDays is fine, but for 0 days the match needs to be precise per day
-                    const daysLeft = differenceInDays(eventDate, today);
+                const eventDate = new Date(event.start);
+                eventDate.setHours(0, 0, 0, 0);
+                const daysLeft = differenceInDays(eventDate, today);
 
+                // Skip past events
+                if (daysLeft < 0) continue;
+
+                // ===== NEW: Multi-period reminder schedule =====
+                if (event.reminderSchedule && event.reminderSchedule.length > 0) {
+                    const sentMap = event.remindersSent || {};
+
+                    for (const period of event.reminderSchedule) {
+                        // Already sent for this period?
+                        if (sentMap[String(period)]) continue;
+
+                        // Is it time? (daysLeft <= period means we are at or past the trigger point)
+                        if (daysLeft <= period) {
+                            try {
+                                console.log(`[Lembrete Multi] Disparando período ${period}d para: ${event.title}. Dias restantes: ${daysLeft}`);
+
+                                const recipients = getRecipients(event);
+                                if (recipients.length === 0) {
+                                    console.warn('[Lembrete] Nenhum destinatário encontrado para o evento:', event.title);
+                                    continue;
+                                }
+
+                                await sendReminderEmail(event, daysLeft, recipients);
+
+                                // Mark this specific period as sent
+                                const updatedSentMap = { ...sentMap, [String(period)]: true };
+                                await updateEvent(event.id, { remindersSent: updatedSentMap });
+
+                                console.log(`[Lembrete Multi] E-mail enviado com sucesso: ${event.title} (período: ${period}d)`);
+                                toast.success(`Lembrete enviado: ${event.title} (${period} dias antes)`);
+                            } catch (err: any) {
+                                console.error('[Lembrete Multi] Erro:', err);
+                                toast.error(`Erro lembrete: ${err.message || 'Falha na conexão'}`);
+                            }
+                        }
+                    }
+                    continue; // Skip legacy check for this event
+                }
+
+                // ===== LEGACY: Single reminderDaysBefore (backward compat) =====
+                if (event.reminderDaysBefore !== undefined && !event.reminderSent) {
                     if (daysLeft <= event.reminderDaysBefore && daysLeft >= 0) {
                         try {
-                            console.log(`[Lembrete] Disparando para o evento: ${event.title}. Dias restantes: ${daysLeft}`);
+                            console.log(`[Lembrete Legacy] Disparando para o evento: ${event.title}. Dias restantes: ${daysLeft}`);
 
-                            let recipients: string[] = [];
-
-                            // 1. Tentar pegar os e-mails dos responsáveis que são administradores
-                            if (event.responsibles && event.responsibles.length > 0) {
-                                recipients = members
-                                    .filter(m => event.responsibles?.includes(m.name) && m.role.startsWith('admin_'))
-                                    .map(m => m.email)
-                                    .filter(Boolean);
-                            }
-
-                            // 2. Fallback: Se não houver nenhum admin responsável, envia para QUEM ESTÁ LOGADO (Você)
-                            if (recipients.length === 0) {
-                                const me = members.find(m => m.name === currentUser);
-                                if (me?.email) {
-                                    recipients = [me.email];
-                                    console.log(`[Lembrete] Enviando para o usuário logado como fallback: ${me.email}`);
-                                } else {
-                                    // Último recurso: Pega todos os admins do sistema
-                                    recipients = members
-                                        .filter(m => m.role.startsWith('admin_'))
-                                        .map(m => m.email)
-                                        .filter(Boolean);
-                                    console.log(`[Lembrete] Enviando para todos os admins como último recurso: ${recipients.join(',')}`);
-                                }
-                            }
-
+                            const recipients = getRecipients(event);
                             if (recipients.length === 0) {
                                 console.warn('[Lembrete] Nenhum destinatário encontrado para o evento:', event.title);
                                 continue;
                             }
-                            const adminEmail = recipients[0];
-                            const bccList = recipients.filter(e => e !== adminEmail).join(',');
 
-                            // Envia via Supabase Function (Resend)
-                            const emailBody: any = {
-                                to: recipients.length === 1 ? recipients[0] : recipients,
-                                bcc: bccList,
-                                from_name: "Sistema PET (Automático)",
-                                subject: `Lembrete: ${event.title}`
-                            };
+                            await sendReminderEmail(event, daysLeft, recipients);
 
-                            // Se tiver templateID, usa! Senão usa HTML padrão.
-                            if (event.templateId) {
-                                const cleanTemplateId = event.templateId.trim();
-                                console.log(`[Lembrete] Usando template do Resend: ${cleanTemplateId}`);
-                                emailBody.template = {
-                                    id: cleanTemplateId,
-                                    variables: {
-                                        name: recipients.length === 1 ? members.find(m => m.email === recipients[0])?.name || 'Membro' : 'Participante',
-                                        event: event.title,
-                                        date: new Date(event.start).toLocaleDateString('pt-BR'),
-                                        area: event.area || 'Geral',
-                                        link: event.link || '',
-                                        timeto: String(daysLeft),
-                                        timeto_word: daysLeft === 1 ? 'dia' : 'dias',
-                                        timeto_verb: daysLeft === 1 ? 'Falta' : 'Faltam'
-                                    }
-                                };
-                            } else {
-                                console.log(`[Lembrete] Usando HTML padrão.`);
-                                emailBody.subject = `Lembrete: ${event.title}`;
-                                emailBody.html = `
-                                    <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
-                                        <h2 style="color: #3b82f6; margin-top: 0;">Lembrete de Evento</h2>
-                                        <p>Olá, este é um lembrete automático do seu <strong>Portal PET</strong>.</p>
-                                        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                                            <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
-                                            <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString('pt-BR')}</p>
-                                            <p style="margin: 5px 0;"><strong>Status:</strong> Falta(m) ${daysLeft} dia(s)</p>
-                                            ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
-                                        </div>
-                                        <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
-                                    </div>
-                                `;
-                            }
-
-                            // Tenta invocar a função
-                            const response = await supabase.functions.invoke('resend-email', {
-                                body: emailBody
-                            });
-
-                            const { data: resData, error: funcError } = response;
-
-                            // Se houver erro de rede/função OU erro reportado no corpo (mesmo com status 200)
-                            if (funcError || (resData && resData.error)) {
-                                console.error('[Lembrete] Erro detectado no envio via Resend:', { funcError, resData });
-
-                                let errorMessage = 'Erro no envio';
-
-                                if (resData && resData.message) {
-                                    // Pega a mensagem real que injetamos ou que veio do Resend
-                                    errorMessage = resData.message;
-                                } else if (funcError) {
-                                    errorMessage = funcError.message;
-                                }
-
-                                throw new Error(errorMessage);
-                            }
-
-                            // Mark as sent in Database
                             await updateEvent(event.id, { reminderSent: true });
-                            console.log(`[Lembrete] E-mail enviado com sucesso: ${event.title}`);
+                            console.log(`[Lembrete Legacy] E-mail enviado com sucesso: ${event.title}`);
                             toast.success(`Lembrete enviado: ${event.title}`);
                         } catch (err: any) {
-                            console.error('[Lembrete] Erro final:', err);
+                            console.error('[Lembrete Legacy] Erro:', err);
                             toast.error(`Erro: ${err.message || 'Falha na conexão'}`);
                         }
                     }
@@ -1023,13 +1067,15 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             toast.error('Apenas administradores podem criar eventos');
             return;
         }
-        const { id, start, end, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, ...eventData } = event;
+        const { id, start, end, reminderSchedule, remindersSent, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, ...eventData } = event;
         
         // REVERT to storing all rich data as JSON in the `date` column, 
         // because the events table might NOT have separate columns for description/link/responsibles.
         const richData = JSON.stringify({ 
             start: start.toISOString(), 
             end: end?.toISOString(), 
+            reminderSchedule,
+            remindersSent,
             reminderDaysBefore, 
             reminderSent, 
             templateId,
@@ -1063,10 +1109,12 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         if (!existing) return;
 
         const updated = { ...existing, ...event };
-        const { id: _, start, end, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, ...eventData } = updated;
+        const { id: _, start, end, reminderSchedule, remindersSent, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, ...eventData } = updated;
         const richData = JSON.stringify({
             start: start.toISOString(),
             end: end?.toISOString(),
+            reminderSchedule,
+            remindersSent,
             reminderDaysBefore,
             reminderSent,
             templateId,

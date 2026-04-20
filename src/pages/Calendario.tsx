@@ -24,8 +24,10 @@ interface EventForm {
     type: 'meeting' | 'deadline' | 'event' | 'birthday' | 'task';
     responsibles?: string[];
     reminderDaysEnabled: boolean;
-    reminderDaysBefore: number;
-    templateId?: string; // NOVO: Campo para ID do Template
+    reminder30days: boolean;
+    reminder7days: boolean;
+    reminder1day: boolean;
+    templateId?: string;
     area?: string;
 }
 
@@ -36,7 +38,7 @@ export default function Calendario() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [viewEvent, setViewEvent] = useState<any>(null); // For Event popover/modal
     const { register, handleSubmit, reset, setValue, watch, control } = useForm<EventForm>({
-        defaultValues: { reminderDaysEnabled: false, reminderDaysBefore: 1, type: 'meeting' }
+        defaultValues: { reminderDaysEnabled: false, reminder30days: true, reminder7days: true, reminder1day: true, type: 'meeting' }
     });
 
     // Checkboxes
@@ -75,6 +77,19 @@ export default function Calendario() {
             return;
         }
 
+        // Build reminder schedule from checkboxes
+        let reminderSchedule: number[] | undefined = undefined;
+        if (data.reminderDaysEnabled) {
+            reminderSchedule = [];
+            if (data.reminder30days) reminderSchedule.push(30);
+            if (data.reminder7days) reminderSchedule.push(7);
+            if (data.reminder1day) reminderSchedule.push(1);
+            if (reminderSchedule.length === 0) {
+                toast.error('Selecione pelo menos um período de envio.');
+                return;
+            }
+        }
+
         addEvent({
             id: crypto.randomUUID(),
             title: data.title,
@@ -84,10 +99,10 @@ export default function Calendario() {
             end,
             description: data.description,
             link: data.link,
-            reminderDaysBefore: data.reminderDaysEnabled ? Number(data.reminderDaysBefore) : undefined,
-            templateId: data.reminderDaysEnabled ? data.templateId : undefined, // NOVO
+            reminderSchedule,
+            remindersSent: {},
+            templateId: data.reminderDaysEnabled ? data.templateId : undefined,
             area: data.area,
-            reminderSent: false
         });
         toast.success('Evento adicionado!');
         reset();
@@ -236,10 +251,27 @@ export default function Calendario() {
                                 </div>
                              )}
 
-                             {viewEvent.extendedProps.reminderDaysBefore && (
-                                <div className="flex items-center gap-3 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10 p-3 rounded-lg border border-orange-100 dark:border-orange-900/50">
-                                    <Mail className="w-5 h-5" />
-                                    <span className="text-sm font-medium">Lembrete ativado: {viewEvent.extendedProps.reminderDaysBefore} dia(s) antes</span>
+                             {(viewEvent.extendedProps.reminderSchedule?.length > 0 || viewEvent.extendedProps.reminderDaysBefore) && (
+                                <div className="flex flex-col gap-2 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10 p-3 rounded-lg border border-orange-100 dark:border-orange-900/50">
+                                    <div className="flex items-center gap-2 font-medium text-sm">
+                                        <Mail className="w-5 h-5" />
+                                        <span>Lembretes por E-mail</span>
+                                    </div>
+                                    {viewEvent.extendedProps.reminderSchedule?.length > 0 ? (
+                                        <div className="pl-7 flex flex-col gap-1">
+                                            {viewEvent.extendedProps.reminderSchedule.map((period: number) => {
+                                                const sent = viewEvent.extendedProps.remindersSent?.[String(period)];
+                                                const label = period === 30 ? '1 mês (30d)' : period === 7 ? '7 dias' : period === 1 ? '1 dia' : `${period} dias`;
+                                                return (
+                                                    <span key={period} className={`text-xs flex items-center gap-1.5 ${sent ? 'text-green-600 dark:text-green-400' : ''}`}>
+                                                        {sent ? '✅' : '⏳'} {label} antes {sent && '— enviado'}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <span className="pl-7 text-xs">{viewEvent.extendedProps.reminderDaysBefore} dia(s) antes {viewEvent.extendedProps.reminderSent && '— enviado ✅'}</span>
+                                    )}
                                 </div>
                              )}
 
@@ -416,29 +448,43 @@ export default function Calendario() {
                             
                             {reminderEnabled && (
                                 <div className="pl-6 animate-in slide-in-from-top-2">
-                                    <label className="text-sm font-medium block text-secondary-700 dark:text-secondary-300 mb-1">
-                                        Enviar e-mail para todos os responsáveis...
+                                    <label className="text-sm font-medium block text-secondary-700 dark:text-secondary-300 mb-2">
+                                        Enviar e-mail para os responsáveis nos períodos:
                                     </label>
                                     <div className="flex flex-col gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <Input 
-                                                type="number" 
-                                                min="0"
-                                                max="30"
-                                                className="w-20"
-                                                {...register('reminderDaysBefore', { required: reminderEnabled, valueAsNumber: true })}
+                                        <label className="flex items-center gap-2 cursor-pointer hover:bg-white/30 dark:hover:bg-white/5 rounded px-2 py-1.5 transition-colors">
+                                            <input 
+                                                type="checkbox" 
+                                                {...register('reminder30days')}
+                                                className="rounded border-primary-300 text-primary-600 focus:ring-primary-600 h-4 w-4"
                                             />
-                                            <span className="text-sm">dias antes do evento</span>
-                                        </div>
-                                        <Input 
-                                            label="Resend Template ID (Opcional)"
-                                            placeholder="Ex: 5678-abcd..."
-                                            className="mt-2"
-                                            {...register('templateId')}
-                                        />
+                                            <span className="text-sm font-medium">📅 1 mês antes <span className="text-secondary-400 font-normal">(30 dias)</span></span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer hover:bg-white/30 dark:hover:bg-white/5 rounded px-2 py-1.5 transition-colors">
+                                            <input 
+                                                type="checkbox" 
+                                                {...register('reminder7days')}
+                                                className="rounded border-primary-300 text-primary-600 focus:ring-primary-600 h-4 w-4"
+                                            />
+                                            <span className="text-sm font-medium">📆 7 dias antes <span className="text-secondary-400 font-normal">(1 semana)</span></span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer hover:bg-white/30 dark:hover:bg-white/5 rounded px-2 py-1.5 transition-colors">
+                                            <input 
+                                                type="checkbox" 
+                                                {...register('reminder1day')}
+                                                className="rounded border-primary-300 text-primary-600 focus:ring-primary-600 h-4 w-4"
+                                            />
+                                            <span className="text-sm font-medium">⏰ 1 dia antes <span className="text-secondary-400 font-normal">(véspera)</span></span>
+                                        </label>
                                     </div>
+                                    <Input 
+                                        label="Resend Template ID (Opcional)"
+                                        placeholder="Ex: 5678-abcd..."
+                                        className="mt-3"
+                                        {...register('templateId')}
+                                    />
                                     <p className="text-xs text-secondary-500 mt-2">
-                                        O sistema disparará os convites automaticamente na casa dos dias informados.
+                                        O sistema disparará e-mails automaticamente em cada período selecionado.
                                     </p>
                                 </div>
                             )}
