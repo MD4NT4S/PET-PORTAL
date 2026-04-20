@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 import { Camera, Loader2 } from 'lucide-react';
 
 export default function Infraestrutura() {
-    const { sectors, loans, addLoan, currentUser, userRole, reorderSectors } = useStorage();
+    const { sectors, loans, addLoan, currentUser, userRole, reorderSectors, fetchInventoryData, loadingSectors } = useStorage();
     const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
     const [selectedItemForLoan, setSelectedItemForLoan] = useState<InventoryItem | null>(null);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -23,6 +23,13 @@ export default function Infraestrutura() {
     const [loanType, setLoanType] = useState<'Empréstimo' | 'Empréstimo Temporário' | 'Uso Contínuo'>('Empréstimo');
 
     const isAdmin = userRole === 'admin_master' || userRole === 'admin_infra';
+
+    // Fetch data on mount if not already loaded
+    React.useEffect(() => {
+        if (sectors.length === 0) {
+            fetchInventoryData();
+        }
+    }, [fetchInventoryData, sectors.length]);
 
     // Keep selectedSector in sync with realtime updates
     React.useEffect(() => {
@@ -208,6 +215,15 @@ export default function Infraestrutura() {
 
         return results.slice(0, 8); // Limit to top 8 results to avoid unmanageable dropdowns
     }, [searchTerm, sectors]);
+
+    if (loadingSectors && sectors.length === 0) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center flex-col gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+                <p className="text-secondary-500 animate-pulse">Carregando armário...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

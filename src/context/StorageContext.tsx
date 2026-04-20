@@ -159,6 +159,8 @@ interface StorageContextType {
     addLoan: (itemId: string, type: 'Empréstimo' | 'Uso Contínuo' | 'Empréstimo Temporário', quantity: number, returnDate?: string, photoUrl?: string) => Promise<boolean>;
     returnLoan: (loanId: string, returnPhotoUrl: string) => Promise<boolean>;
     approveLoanReturn: (loanId: string, condition: 'ok' | 'damaged' | 'dirty', notes?: string) => Promise<boolean>;
+    fetchInventoryData: () => Promise<void>;
+    loadingSectors: boolean;
 
     // Photos
     photos: Photo[];
@@ -186,6 +188,8 @@ interface StorageContextType {
     documents: DocumentDTO[];
     addDocument: (doc: Omit<DocumentDTO, 'id' | 'createdAt'>, file?: File) => Promise<void>;
     removeDocument: (id: string) => void;
+    fetchDocumentsData: () => Promise<void>;
+    loadingDocuments: boolean;
 }
 
 export interface DocumentDTO {
@@ -255,6 +259,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [documents, setDocuments] = useState<DocumentDTO[]>([]);
     const [notices, setNotices] = useState<Notice[]>([]);
+    const [loadingSectors, setLoadingSectors] = useState(false);
+    const [loadingDocuments, setLoadingDocuments] = useState(false);
 
     // CMS State
     const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -318,9 +324,56 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     const canManageCalendar = isAdmin || ['admin_secretaria', 'admin_divulgacao', 'admin_pesquisa'].includes(userRole || '');
 
     // --- Data Fetching ---
-    const fetchData = async () => {
+    const fetchCriticalData = async () => {
         try {
-            // Initiate all requests in parallel
+            // Initiate essential requests for Home page
+            const [siteConfigRes, noticesRes, photosRes] = await Promise.all([
+                supabase.from('site_config').select('*').limit(1).single(),
+                supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(10),
+                supabase.from('photos').select('*').order('created_at', { ascending: false }).limit(20)
+            ]);
+
+            // Process Site Config
+            if (siteConfigRes.data) {
+                setSiteConfig(siteConfigRes.data.config);
+            } else {
+                await supabase.from('site_config').insert({ config: DEFAULT_SITE_CONFIG });
+            }
+
+            // Process Notices
+            if (noticesRes.data) {
+                setNotices(noticesRes.data.map(n => ({
+                    id: n.id,
+                    title: n.title,
+                    content: n.content,
+                    type: n.type,
+                    createdAt: n.created_at,
+                    author: n.author
+                })));
+            }
+
+            // Process Photos (Limited for Home)
+            if (photosRes.data) {
+                setPhotos(photosRes.data.map(p => ({
+                    id: p.id,
+                    url: p.url,
+                    description: p.description,
+                    author: p.author,
+                    createdAt: p.created_at,
+                    rotation: p.rotation
+                })));
+            }
+
+        } catch (error) {
+            console.error("Error fetching critical data:", error);
+        } finally {
+            setLoadingConfig(false);
+        }
+    };
+
+    const fetchSecondaryData = async () => {
+        try {
+            // Load remaining data in background
             const [
                 ticketsRes,
                 feedbacksRes,
@@ -330,23 +383,17 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 eventsRes,
                 sectorsRes,
                 loansRes,
-                siteConfigRes,
-                documentsRes,
-                photosRes,
-                noticesRes
+                documentsRes
             ] = await Promise.all([
-                supabase.from('tickets').select('*').order('created_at', { ascending: false }),
-                supabase.from('feedbacks').select('*').order('created_at', { ascending: false }),
-                supabase.from('evaluations').select('*').order('created_at', { ascending: false }),
-                supabase.from('ombudsman').select('*').order('created_at', { ascending: false }),
+                supabase.from('tickets').select('*').order('created_at', { ascending: false }).limit(100),
+                supabase.from('feedbacks').select('*').order('created_at', { ascending: false }).limit(50),
+                supabase.from('evaluations').select('*').order('created_at', { ascending: false }).limit(100),
+                supabase.from('ombudsman').select('*').order('created_at', { ascending: false }).limit(50),
                 supabase.from('members').select('*').order('name'),
                 supabase.from('events').select('*'),
                 supabase.from('sectors').select('*, items:inventory_items(*)').order('display_order'),
-                supabase.from('loans').select('*').order('date', { ascending: false }),
-                supabase.from('site_config').select('*').limit(1).single(),
-                supabase.from('documents').select('*').order('created_at', { ascending: false }),
-                supabase.from('photos').select('*').order('created_at', { ascending: false }).limit(30), // Limit to 30 recent photos
-                supabase.from('notices').select('*').order('created_at', { ascending: false })
+                supabase.from('loans').select('*').order('date', { ascending: false }).limit(100),
+                supabase.from('documents').select('*').order('created_at', { ascending: false })
             ]);
 
             // Process Tickets
@@ -357,7 +404,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 const thirtyDaysAgo = new Date();
                 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
                 const validFeedbacks = feedbacksRes.data.filter(f => new Date(f.created_at) > thirtyDaysAgo);
-
+                
                 // Cleanup old feedbacks silently
                 const expiredIds = feedbacksRes.data.filter(f => new Date(f.created_at) <= thirtyDaysAgo).map(f => f.id);
                 if (expiredIds.length > 0) {
@@ -416,14 +463,13 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 end: richData.end ? new Date(richData.end) : undefined,
                                 reminderDaysBefore: richData.reminderDaysBefore,
                                 reminderSent: richData.reminderSent,
-                                templateId: richData.templateId, // NOVO
+                                templateId: richData.templateId,
                                 description: richData.description,
                                 link: richData.link
                             };
                         }
                     } catch {}
                     
-                    // Fallback for legacy DD/MM/YYYY dates
                     if (typeof e.date === 'string') {
                         const parts = e.date.split('/');
                         if (parts.length >= 2) {
@@ -432,7 +478,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                             const year = parts[2] ? parseInt(parts[2]) : new Date().getFullYear();
                             return {
                                 ...e,
-                                start: new Date(year, month, day, 9, 0), // 9 AM default
+                                start: new Date(year, month, day, 9, 0),
                             };
                         }
                     }
@@ -487,53 +533,20 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                 }));
             }
 
-            // Process Site Config
-            if (siteConfigRes.data) {
-                setSiteConfig(siteConfigRes.data.config);
-            } else {
-                await supabase.from('site_config').insert({ config: DEFAULT_SITE_CONFIG });
-            }
-
             // Process Documents
             if (documentsRes.data) setDocuments(documentsRes.data.map(d => ({ ...d, createdAt: d.created_at })));
 
-            // Process Photos
-            if (photosRes.data) {
-                setPhotos(photosRes.data.map(p => ({
-                    id: p.id,
-                    url: p.url,
-                    description: p.description,
-                    author: p.author,
-                    createdAt: p.created_at,
-                    rotation: p.rotation
-                })));
-            }
-
-            // Process Notices
-            if (noticesRes.data) {
-                setNotices(noticesRes.data.map(n => ({
-                    id: n.id,
-                    title: n.title,
-                    content: n.content,
-                    type: n.type,
-                    createdAt: n.created_at,
-                    author: n.author
-                })));
-            }
-
         } catch (error) {
-            console.error("Error fetching data:", error);
-            toast.error("Erro ao carregar dados do banco de dados.");
-        } finally {
-            setLoadingConfig(false);
+            console.error("Error fetching secondary data:", error);
         }
     };
 
     const fetchInventoryData = async () => {
+        setLoadingSectors(true);
         try {
             const [sectorsRes, loansRes] = await Promise.all([
                 supabase.from('sectors').select('*, items:inventory_items(*)').order('display_order'),
-                supabase.from('loans').select('*').order('date', { ascending: false })
+                supabase.from('loans').select('*').order('date', { ascending: false }).limit(100)
             ]);
 
             if (sectorsRes.data) {
@@ -581,11 +594,30 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (error) {
             console.error("Error syncing inventory data:", error);
+        } finally {
+            setLoadingSectors(false);
+        }
+    };
+
+    const fetchDocumentsData = async () => {
+        setLoadingDocuments(true);
+        try {
+            const { data, error } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
+            if (error) throw error;
+            if (data) setDocuments(data.map(d => ({ ...d, createdAt: d.created_at })));
+        } catch (error) {
+            console.error("Error fetching documents:", error);
+        } finally {
+            setLoadingDocuments(false);
         }
     };
 
     useEffect(() => {
-        fetchData();
+        const initialize = async () => {
+            await fetchCriticalData();
+            fetchSecondaryData(); // Load the rest in background
+        };
+        initialize();
 
         // Realtime Subscriptions for Inventory and Loans
         const channel = supabase.channel('inventory-sync')
@@ -1472,59 +1504,66 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
 
 
+    const contextValue = React.useMemo(() => ({
+        tickets,
+        addTicket,
+        updateTicket,
+        removeTicket,
+        feedbacks,
+        addFeedback,
+        removeFeedback,
+        evaluations,
+        addEvaluation,
+        removeEvaluation,
+        ombudsman,
+        addOmbudsman,
+        siteConfig,
+        loadingConfig,
+        updateSiteConfig,
+        isAdmin,
+        userRole,
+        currentUser,
+        loginUser,
+        logoutUser,
+        members,
+        addMember,
+        removeMember,
+        events,
+        addEvent,
+        updateEvent,
+        removeEvent,
+        updateOmbudsmanStatus,
+        removeOmbudsman,
+        updateMember,
+        sectors,
+        updateSector,
+        updateSectorItems,
+        reorderSectors,
+        loans,
+        addLoan,
+        returnLoan,
+        approveLoanReturn,
+        fetchInventoryData,
+        loadingSectors,
+        documents,
+        addDocument,
+        removeDocument,
+        fetchDocumentsData,
+        loadingDocuments,
+        canManageCalendar,
+        photos,
+        addPhoto,
+        removePhoto,
+        notices,
+        addNotice,
+        removeNotice
+    }), [
+        tickets, feedbacks, evaluations, ombudsman, siteConfig, loadingConfig, isAdmin, userRole, currentUser, 
+        members, events, sectors, loans, documents, canManageCalendar, photos, notices
+    ]);
+
     return (
-        <StorageContext.Provider
-            value={{
-                tickets,
-                addTicket,
-                updateTicket,
-                removeTicket,
-                feedbacks,
-                addFeedback,
-                removeFeedback,
-                evaluations,
-                addEvaluation,
-                removeEvaluation,
-                ombudsman,
-                addOmbudsman,
-                siteConfig,
-                loadingConfig,
-                updateSiteConfig,
-                isAdmin,
-                userRole,
-                currentUser,
-                loginUser,
-                logoutUser,
-                members,
-                addMember,
-                removeMember,
-                events,
-                addEvent,
-                updateEvent,
-                removeEvent,
-                updateOmbudsmanStatus,
-                removeOmbudsman,
-                updateMember,
-                sectors,
-                updateSector,
-                updateSectorItems,
-                reorderSectors,
-                loans,
-                addLoan,
-                returnLoan,
-                approveLoanReturn,
-                documents,
-                addDocument,
-                removeDocument,
-                canManageCalendar,
-                photos,
-                addPhoto,
-                removePhoto,
-                notices,
-                addNotice,
-                removeNotice
-            }}
-        >
+        <StorageContext.Provider value={contextValue}>
             {children}
         </StorageContext.Provider>
     );

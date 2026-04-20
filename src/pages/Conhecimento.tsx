@@ -7,9 +7,15 @@ import { useStorage } from '../context/StorageContext';
 import { toast } from 'sonner';
 
 export default function Conhecimento() {
-    const { documents, addDocument, removeDocument, userRole } = useStorage();
+    const { documents, addDocument, removeDocument, userRole, fetchDocumentsData, loadingDocuments } = useStorage();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    React.useEffect(() => {
+        if (documents.length === 0) {
+            fetchDocumentsData();
+        }
+    }, [documents.length, fetchDocumentsData]);
 
     // Form State
     const [newDoc, setNewDoc] = useState({
@@ -76,6 +82,15 @@ export default function Conhecimento() {
         setNewDoc({ title: '', category: 'Normas', url: '', type: 'pdf', size: '' });
         setSelectedFile(null);
     };
+
+    if (loadingDocuments && documents.length === 0) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center flex-col gap-4">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"></div>
+                <p className="text-secondary-500 animate-pulse">Carregando documentos...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
