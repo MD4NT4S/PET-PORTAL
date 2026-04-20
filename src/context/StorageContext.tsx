@@ -720,67 +720,86 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                             const adminEmail = recipients[0];
                             const bccList = recipients.filter(e => e !== adminEmail).join(',');
 
-                            // Envia via Supabase Function
-                            const emailBody: any = {
-                                to: recipients.length === 1 ? recipients[0] : recipients,
-                                bcc: bccList,
-                                from_name: "Sistema PET (Automático)",
-                                subject: `Lembrete: ${event.title}`
-                            };
+                            let errorMessage = 'Erro no envio';
+                            let success = false;
 
-                            // Se tiver templateID, usa! Senão usa HTML padrão.
-                            if (event.templateId) {
+                            // Se tiver templateID e as chaves do EmailJS no .env, usa EmailJS diretamente!
+                            if (event.templateId && import.meta.env.VITE_EMAILJS_PUBLIC_KEY && import.meta.env.VITE_EMAILJS_SERVICE_ID) {
                                 const cleanTemplateId = event.templateId.trim();
-                                console.log(`[Lembrete] Usando template do Resend: ${cleanTemplateId}`);
-                                emailBody.template = {
-                                    id: cleanTemplateId,
-                                    variables: {
+                                console.log(`[Lembrete] Enviando via EmailJS (Template: ${cleanTemplateId})`);
+                                
+                                const emailjsPayload = {
+                                    service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                                    template_id: cleanTemplateId,
+                                    user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY,
+                                    template_params: {
                                         name: recipients.length === 1 ? members.find(m => m.email === recipients[0])?.name || 'Membro' : 'Participante',
                                         event: event.title,
                                         date: new Date(event.start).toLocaleDateString('pt-BR'),
                                         area: event.area || 'Geral',
                                         link: event.link || '',
-                                        timeto: String(daysLeft)
+                                        timeto: String(daysLeft),
+                                        to_email: recipients.join(','), // A variável que o EmailJS pode usar para enviar
+                                        to_name: recipients.join(',') 
                                     }
                                 };
+
+                                try {
+                                    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(emailjsPayload)
+                                    });
+
+                                    if (!response.ok) {
+                                        errorMessage = await response.text();
+                                    } else {
+                                        success = true;
+                                    }
+                                } catch (e: any) {
+                                    errorMessage = e.message;
+                                }
                             } else {
-                                console.log(`[Lembrete] Usando HTML padrão.`);
-                                emailBody.subject = `Lembrete: ${event.title}`;
-                                emailBody.html = `
-                                    <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
-                                        <h2 style="color: #3b82f6; margin-top: 0;">Lembrete de Evento</h2>
-                                        <p>Olá, este é um lembrete automático do seu <strong>Portal PET</strong>.</p>
-                                        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                                            <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
-                                            <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString()}</p>
-                                            <p style="margin: 5px 0;"><strong>Status:</strong> Falta(m) ${daysLeft} dia(s)</p>
-                                            ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
+                                // ENVIO VIA SUPABASE EDGE FUNCTION (HTML padrão de fallback)
+                                console.log(`[Lembrete] Enviando HTML padrão via Supabase Edge Function (Resend)`);
+                                const emailBody: any = {
+                                    to: recipients.length === 1 ? recipients[0] : recipients,
+                                    bcc: bccList,
+                                    from_name: "Sistema PET (Automático)",
+                                    subject: `Lembrete: ${event.title}`,
+                                    html: `
+                                        <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
+                                            <h2 style="color: #3b82f6; margin-top: 0;">Lembrete de Evento</h2>
+                                            <p>Olá, este é um lembrete automático do seu <strong>Portal PET</strong>.</p>
+                                            <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                                <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
+                                                <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString('pt-BR')}</p>
+                                                <p style="margin: 5px 0;"><strong>Status:</strong> Falta(m) ${daysLeft} dia(s)</p>
+                                                ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
+                                            </div>
+                                            <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
                                         </div>
-                                        <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
-                                    </div>
-                                `;
+                                    `
+                                };
+
+                                try {
+                                    const response = await supabase.functions.invoke('resend-email', {
+                                        body: emailBody
+                                    });
+
+                                    const { data: resData, error: funcError } = response;
+                                    if (funcError || (resData && resData.error)) {
+                                        errorMessage = resData?.message || funcError?.message || 'Erro desconhecido na Edge Function';
+                                    } else {
+                                        success = true;
+                                    }
+                                } catch (e: any) {
+                                    errorMessage = e.message;
+                                }
                             }
 
-                            // Tenta invocar a função
-                            const response = await supabase.functions.invoke('resend-email', {
-                                body: emailBody
-                            });
-
-                            const { data: resData, error: funcError } = response;
-
-                            // Se houver erro de rede/função OU erro reportado no corpo (mesmo com status 200)
-                            if (funcError || (resData && resData.error)) {
-                                console.error('[Lembrete] Erro detectado no envio:', { funcError, resData });
-
-                                let errorMessage = 'Erro no envio';
-
-                                if (resData && resData.message) {
-                                    // Pega a mensagem real que injetamos ou que veio do Resend
-                                    errorMessage = resData.message;
-                                } else if (funcError) {
-                                    errorMessage = funcError.message;
-                                }
-
+                            if (!success) {
+                                console.error('[Lembrete] Erro detectado no envio:', errorMessage);
                                 throw new Error(errorMessage);
                             }
 
