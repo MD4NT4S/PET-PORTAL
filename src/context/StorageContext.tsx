@@ -243,6 +243,7 @@ export interface CalendarEvent {
     templateId?: string;
     description?: string;
     link?: string;
+    area?: string;
 }
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -470,6 +471,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                         templateId: richData.templateId,
                                         description: richData.description,
                                         link: richData.link,
+                                        area: richData.area,
                                         responsibles: richData.responsibles
                                     };
                                 }
@@ -733,16 +735,12 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                                 emailBody.template = {
                                     id: cleanTemplateId,
                                     variables: {
-                                        responsavel: recipients.length === 1 ? members.find(m => m.email === recipients[0])?.name || 'Membro' : 'Equipe',
-                                        evento: event.title,
-                                        title: event.title, // keeping for compatibility
+                                        name: recipients.length === 1 ? members.find(m => m.email === recipients[0])?.name || 'Membro' : 'Participante',
+                                        event: event.title,
                                         date: new Date(event.start).toLocaleDateString('pt-BR'),
-                                        data: new Date(event.start).toLocaleDateString('pt-BR'),
-                                        horario: new Date(event.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                                        link: event.link || 'Não informado',
-                                        descricao: event.description || 'Sem descrição',
-                                        description: event.description || '', // keeping for compatibility
-                                        days_left: String(daysLeft)
+                                        area: event.area || 'Geral',
+                                        link: event.link || '',
+                                        timeto: String(daysLeft)
                                     }
                                 };
                             } else {
@@ -1024,7 +1022,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             toast.error('Apenas administradores podem criar eventos');
             return;
         }
-        const { id, start, end, reminderDaysBefore, reminderSent, templateId, description, link, responsibles, ...eventData } = event;
+        const { id, start, end, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, ...eventData } = event;
         
         // REVERT to storing all rich data as JSON in the `date` column, 
         // because the events table might NOT have separate columns for description/link/responsibles.
@@ -1036,6 +1034,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             templateId,
             description,
             link,
+            area,
             responsibles
         });
         
@@ -1063,7 +1062,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         if (!existing) return;
 
         const updated = { ...existing, ...event };
-        const { id: _, start, end, reminderDaysBefore, reminderSent, templateId, description, link, responsibles, ...eventData } = updated;
+        const { id: _, start, end, reminderDaysBefore, reminderSent, templateId, description, link, area, responsibles, ...eventData } = updated;
         const richData = JSON.stringify({
             start: start.toISOString(),
             end: end?.toISOString(),
@@ -1072,6 +1071,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             templateId,
             description,
             link,
+            area,
             responsibles
         });
 

@@ -26,6 +26,7 @@ interface EventForm {
     reminderDaysEnabled: boolean;
     reminderDaysBefore: number;
     templateId?: string; // NOVO: Campo para ID do Template
+    area?: string;
 }
 
 export default function Calendario() {
@@ -85,6 +86,7 @@ export default function Calendario() {
             link: data.link,
             reminderDaysBefore: data.reminderDaysEnabled ? Number(data.reminderDaysBefore) : undefined,
             templateId: data.reminderDaysEnabled ? data.templateId : undefined, // NOVO
+            area: data.area,
             reminderSent: false
         });
         toast.success('Evento adicionado!');
@@ -216,6 +218,15 @@ export default function Calendario() {
                                 </div>
                              )}
 
+                             {viewEvent.extendedProps.area && (
+                                <div className="flex items-start gap-3 text-secondary-700 dark:text-secondary-300">
+                                    <MapPin className="w-5 h-5 text-secondary-400 mt-0.5" />
+                                    <p className="text-sm border-l-2 border-secondary-200 pl-3">
+                                        Área: {viewEvent.extendedProps.area}
+                                    </p>
+                                </div>
+                             )}
+
                              {viewEvent.extendedProps.description && (
                                 <div className="flex items-start gap-3 text-secondary-700 dark:text-secondary-300">
                                     <AlignLeft className="w-5 h-5 text-secondary-400 mt-0.5" />
@@ -332,12 +343,29 @@ export default function Calendario() {
                                     <option value="birthday">Aniversário</option>
                                 </select>
                             </div>
-                            <Input
-                                label="Link da Reunião/Local (Opcional)"
-                                {...register('link')}
-                                placeholder="https://meet.google.com/..."
-                            />
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Área do Evento (Opcional)</label>
+                                <select
+                                    {...register('area')}
+                                    className="w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 dark:bg-secondary-950 dark:border-secondary-700"
+                                >
+                                    <option value="">Nenhuma / Geral</option>
+                                    <option value="Gestão de Pessoas">Gestão de Pessoas</option>
+                                    <option value="Infraestrutura">Infraestrutura</option>
+                                    <option value="Pesquisa">Pesquisa</option>
+                                    <option value="Secretaria">Secretaria</option>
+                                    <option value="Divulgação">Divulgação</option>
+                                    <option value="Extensão">Extensão</option>
+                                    <option value="Ensino">Ensino</option>
+                                </select>
+                            </div>
                         </div>
+
+                        <Input
+                            label="Link da Reunião/Local (Opcional)"
+                            {...register('link')}
+                            placeholder="https://meet.google.com/..."
+                        />
 
                         <div className="grid grid-cols-2 gap-4 bg-secondary-50 dark:bg-secondary-900/50 p-3 rounded-lg border border-secondary-200 dark:border-secondary-800">
                             <Input
