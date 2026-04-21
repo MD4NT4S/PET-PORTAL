@@ -743,27 +743,10 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         };
 
         const getRecipients = (event: CalendarEvent): string[] => {
-            let recipients: string[] = [];
-
-            if (event.responsibles && event.responsibles.length > 0) {
-                recipients = members
-                    .filter(m => event.responsibles?.includes(m.name))
-                    .map(m => m.email)
-                    .filter(Boolean);
-            }
-
-            if (recipients.length === 0) {
-                const me = members.find(m => m.name === currentUser);
-                if (me?.email) {
-                    recipients = [me.email];
-                } else {
-                    recipients = members
-                        .map(m => m.email)
-                        .filter(Boolean);
-                }
-            }
-
-            return recipients;
+            // Sempre enviar para todos os membros ativos
+            return members
+                .map(m => m.email)
+                .filter(Boolean);
         };
 
         const checkReminders = async () => {
