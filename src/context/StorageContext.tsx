@@ -675,152 +675,122 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
-    useEffect(() => {
-        const sendReminderEmail = async (event: CalendarEvent, daysLeft: number, recipients: string[]) => {
-            const adminEmail = recipients[0];
-            const bccList = recipients.filter(e => e !== adminEmail).join(',');
+    const sendReminderEmail = async (event: CalendarEvent, daysLeft: number, recipients: string[]) => {
+        const adminEmail = recipients[0];
+        const bccList = recipients.filter(e => e !== adminEmail).join(',');
 
-            // Envia via Supabase Function (Resend)
-            const emailBody: any = {
-                to: recipients.length === 1 ? recipients[0] : recipients,
-                bcc: bccList,
-                from_name: "Sistema PET (Automático)",
-                subject: `Lembrete: ${event.title}`
+        // Envia via Supabase Function (Resend)
+        const emailBody: any = {
+            to: recipients.length === 1 ? recipients[0] : recipients,
+            bcc: bccList,
+            from_name: "Sistema PET (Automático)",
+            subject: `Lembrete: ${event.title}`
+        };
+
+        // Se tiver templateID, usa! Senão usa HTML padrão.
+        if (event.templateId) {
+            const cleanTemplateId = event.templateId.trim();
+            console.log(`[Lembrete] Usando template do Resend: ${cleanTemplateId}`);
+            emailBody.template = {
+                id: cleanTemplateId,
+                variables: {
+                    name: recipients.length === 1 ? members.find(m => m.email === recipients[0])?.name || 'Membro' : 'Participante',
+                    event: event.title,
+                    date: new Date(event.start).toLocaleDateString('pt-BR'),
+                    area: event.area || 'Geral',
+                    link: event.link || '',
+                    timeto: String(daysLeft),
+                    timeto_word: daysLeft === 1 ? 'dia' : 'dias',
+                    timeto_verb: daysLeft === 1 ? 'Falta' : 'Faltam',
+                    limit: event.submissionDeadline ? new Date(event.submissionDeadline + 'T00:00:00').toLocaleDateString('pt-BR') : ''
+                }
             };
-
-            // Se tiver templateID, usa! Senão usa HTML padrão.
-            if (event.templateId) {
-                const cleanTemplateId = event.templateId.trim();
-                console.log(`[Lembrete] Usando template do Resend: ${cleanTemplateId}`);
-                emailBody.template = {
-                    id: cleanTemplateId,
-                    variables: {
-                        name: recipients.length === 1 ? members.find(m => m.email === recipients[0])?.name || 'Membro' : 'Participante',
-                        event: event.title,
-                        date: new Date(event.start).toLocaleDateString('pt-BR'),
-                        area: event.area || 'Geral',
-                        link: event.link || '',
-                        timeto: String(daysLeft),
-                        timeto_word: daysLeft === 1 ? 'dia' : 'dias',
-                        timeto_verb: daysLeft === 1 ? 'Falta' : 'Faltam',
-                        limit: event.submissionDeadline ? new Date(event.submissionDeadline + 'T00:00:00').toLocaleDateString('pt-BR') : ''
-                    }
-                };
-            } else {
-                const isNewEvent = daysLeft === -1;
-                const periodLabel = isNewEvent ? 'Novo Evento!' : (daysLeft === 0 ? 'Hoje!' : daysLeft === 1 ? 'Amanhã!' : `Falta(m) ${daysLeft} dia(s)`);
-                emailBody.subject = isNewEvent ? `Novo Evento: ${event.title}` : `Lembrete: ${event.title} — ${periodLabel}`;
-                emailBody.html = `
-                    <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
-                        <h2 style="color: #3b82f6; margin-top: 0;">${isNewEvent ? 'Novo Evento Criado' : 'Lembrete de Evento'}</h2>
-                        <p>Olá, este é um aviso automático do seu <strong>Portal PET</strong>.</p>
-                        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                            <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
-                            <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString('pt-BR')}</p>
-                            <p style="margin: 5px 0;"><strong>Status:</strong> ${isNewEvent ? 'Acabou de ser postado' : periodLabel}</p>
-                            ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
-                        </div>
-                        <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
+        } else {
+            const isNewEvent = daysLeft === -1;
+            const periodLabel = isNewEvent ? 'Novo Evento!' : (daysLeft === 0 ? 'Hoje!' : daysLeft === 1 ? 'Amanhã!' : `Falta(m) ${daysLeft} dia(s)`);
+            emailBody.subject = isNewEvent ? `Novo Evento: ${event.title}` : `Lembrete: ${event.title} — ${periodLabel}`;
+            emailBody.html = `
+                <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
+                    <h2 style="color: #3b82f6; margin-top: 0;">${isNewEvent ? 'Novo Evento Criado' : 'Lembrete de Evento'}</h2>
+                    <p>Olá, este é um aviso automático do seu <strong>Portal PET</strong>.</p>
+                    <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
+                        <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString('pt-BR')}</p>
+                        <p style="margin: 5px 0;"><strong>Status:</strong> ${isNewEvent ? 'Acabou de ser postado' : periodLabel}</p>
+                        ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
                     </div>
-                `;
+                    <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
+                </div>
+            `;
+        }
+
+        const response = await supabase.functions.invoke('resend-email', {
+            body: emailBody
+        });
+
+        const { data: resData, error: funcError } = response;
+
+        if (funcError || (resData && resData.error)) {
+            console.error('[Lembrete] Erro detectado no envio via Resend:', { funcError, resData });
+            let errorMessage = 'Erro no envio';
+            if (resData && resData.message) {
+                errorMessage = resData.message;
+            } else if (funcError) {
+                errorMessage = funcError.message;
             }
+            throw new Error(errorMessage);
+        }
+    };
 
-            const response = await supabase.functions.invoke('resend-email', {
-                body: emailBody
-            });
+    const getRecipients = (event: CalendarEvent): string[] => {
+        let recipients: string[] = [];
 
-            const { data: resData, error: funcError } = response;
+        // Se houver responsáveis, envia APENAS para eles
+        if (event.responsibles && event.responsibles.length > 0) {
+            recipients = members
+                .filter(m => event.responsibles?.includes(m.name))
+                .map(m => m.email)
+                .filter(Boolean);
+        }
 
-            if (funcError || (resData && resData.error)) {
-                console.error('[Lembrete] Erro detectado no envio via Resend:', { funcError, resData });
-                let errorMessage = 'Erro no envio';
-                if (resData && resData.message) {
-                    errorMessage = resData.message;
-                } else if (funcError) {
-                    errorMessage = funcError.message;
-                }
-                throw new Error(errorMessage);
-            }
-        };
+        // Se não houver responsáveis, envia para todos (fallback)
+        if (recipients.length === 0) {
+            recipients = members
+                .map(m => m.email)
+                .filter(Boolean);
+        }
 
-        const getRecipients = (event: CalendarEvent): string[] => {
-            let recipients: string[] = [];
+        return recipients;
+    };
 
-            // Se houver responsáveis, envia APENAS para eles
-            if (event.responsibles && event.responsibles.length > 0) {
-                recipients = members
-                    .filter(m => event.responsibles?.includes(m.name))
-                    .map(m => m.email)
-                    .filter(Boolean);
-            }
+    const checkReminders = async () => {
+        if (events.length === 0 || members.length === 0) return;
 
-            // Se não houver responsáveis, envia para todos (fallback)
-            if (recipients.length === 0) {
-                recipients = members
-                    .map(m => m.email)
-                    .filter(Boolean);
-            }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-            return recipients;
-        };
+        for (const event of events) {
+            if (!event.start) continue;
 
-        const checkReminders = async () => {
-            if (events.length === 0 || members.length === 0) return;
+            const eventDate = new Date(event.start);
+            eventDate.setHours(0, 0, 0, 0);
+            const daysLeft = differenceInDays(eventDate, today);
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // Skip past events
+            if (daysLeft < 0) continue;
 
-            for (const event of events) {
-                if (!event.start) continue;
+            // ===== NEW: Multi-period reminder schedule =====
+            if (event.reminderSchedule && event.reminderSchedule.length > 0) {
+                const sentMap = event.remindersSent || {};
 
-                const eventDate = new Date(event.start);
-                eventDate.setHours(0, 0, 0, 0);
-                const daysLeft = differenceInDays(eventDate, today);
+                for (const period of event.reminderSchedule) {
+                    // Already sent for this period?
+                    if (sentMap[String(period)]) continue;
 
-                // Skip past events
-                if (daysLeft < 0) continue;
-
-                // ===== NEW: Multi-period reminder schedule =====
-                if (event.reminderSchedule && event.reminderSchedule.length > 0) {
-                    const sentMap = event.remindersSent || {};
-
-                    for (const period of event.reminderSchedule) {
-                        // Already sent for this period?
-                        if (sentMap[String(period)]) continue;
-
-                        // Is it time? (daysLeft <= period means we are at or past the trigger point)
-                        if (daysLeft <= period) {
-                            try {
-                                console.log(`[Lembrete Multi] Disparando período ${period}d para: ${event.title}. Dias restantes: ${daysLeft}`);
-
-                                const recipients = getRecipients(event);
-                                if (recipients.length === 0) {
-                                    console.warn('[Lembrete] Nenhum destinatário encontrado para o evento:', event.title);
-                                    continue;
-                                }
-
-                                await sendReminderEmail(event, daysLeft, recipients);
-
-                                // Mark this specific period as sent
-                                const updatedSentMap = { ...sentMap, [String(period)]: true };
-                                await updateEvent(event.id, { remindersSent: updatedSentMap });
-
-                                console.log(`[Lembrete Multi] E-mail enviado com sucesso: ${event.title} (período: ${period}d)`);
-                                toast.success(`Lembrete enviado: ${event.title} (${period} dias antes)`);
-                            } catch (err: any) {
-                                console.error('[Lembrete Multi] Erro:', err);
-                                toast.error(`Erro lembrete: ${err.message || 'Falha na conexão'}`);
-                            }
-                        }
-                    }
-                    continue; // Skip legacy check for this event
-                }
-
-                // ===== LEGACY: Single reminderDaysBefore (backward compat) =====
-                if (event.reminderDaysBefore !== undefined && !event.reminderSent) {
-                    if (daysLeft <= event.reminderDaysBefore && daysLeft >= 0) {
+                    // Is it time? (daysLeft <= period means we are at or past the trigger point)
+                    if (daysLeft <= period) {
                         try {
-                            console.log(`[Lembrete Legacy] Disparando para o evento: ${event.title}. Dias restantes: ${daysLeft}`);
+                            console.log(`[Lembrete Multi] Disparando período ${period}d para: ${event.title}. Dias restantes: ${daysLeft}`);
 
                             const recipients = getRecipients(event);
                             if (recipients.length === 0) {
@@ -830,17 +800,48 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
                             await sendReminderEmail(event, daysLeft, recipients);
 
-                            await updateEvent(event.id, { reminderSent: true });
-                            console.log(`[Lembrete Legacy] E-mail enviado com sucesso: ${event.title}`);
-                            toast.success(`Lembrete enviado: ${event.title}`);
+                            // Mark this specific period as sent
+                            const updatedSentMap = { ...sentMap, [String(period)]: true };
+                            await updateEvent(event.id, { remindersSent: updatedSentMap });
+
+                            console.log(`[Lembrete Multi] E-mail enviado com sucesso: ${event.title} (período: ${period}d)`);
+                            toast.success(`Lembrete enviado: ${event.title} (${period} dias antes)`);
                         } catch (err: any) {
-                            console.error('[Lembrete Legacy] Erro:', err);
-                            toast.error(`Erro: ${err.message || 'Falha na conexão'}`);
+                            console.error('[Lembrete Multi] Erro:', err);
+                            toast.error(`Erro lembrete: ${err.message || 'Falha na conexão'}`);
                         }
                     }
                 }
+                continue; // Skip legacy check for this event
             }
-        };
+
+            // ===== LEGACY: Single reminderDaysBefore (backward compat) =====
+            if (event.reminderDaysBefore !== undefined && !event.reminderSent) {
+                if (daysLeft <= event.reminderDaysBefore && daysLeft >= 0) {
+                    try {
+                        console.log(`[Lembrete Legacy] Disparando para o evento: ${event.title}. Dias restantes: ${daysLeft}`);
+
+                        const recipients = getRecipients(event);
+                        if (recipients.length === 0) {
+                            console.warn('[Lembrete] Nenhum destinatário encontrado para o evento:', event.title);
+                            continue;
+                        }
+
+                        await sendReminderEmail(event, daysLeft, recipients);
+
+                        await updateEvent(event.id, { reminderSent: true });
+                        console.log(`[Lembrete Legacy] E-mail enviado com sucesso: ${event.title}`);
+                        toast.success(`Lembrete enviado: ${event.title}`);
+                    } catch (err: any) {
+                        console.error('[Lembrete Legacy] Erro:', err);
+                        toast.error(`Erro: ${err.message || 'Falha na conexão'}`);
+                    }
+                }
+            }
+        }
+    };
+
+    useEffect(() => {
 
         // Delay checking slightly to ensure DB is fully loaded
         const timeout = setTimeout(() => {
@@ -1103,7 +1104,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             const recipients = getRecipients(createdEvent);
             if (recipients.length > 0) {
                 console.log(`[Lembrete] Enviando notificação imediata de novo evento para ${recipients.length} pessoas.`);
-                sendReminderEmail(createdEvent, -1, recipients).catch(err => {
+                sendReminderEmail(createdEvent, -1, recipients).catch((err: any) => {
                     console.error("Erro ao enviar e-mail de novo evento:", err);
                 });
             }
