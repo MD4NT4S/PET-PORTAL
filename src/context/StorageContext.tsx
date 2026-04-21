@@ -707,16 +707,17 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                     }
                 };
             } else {
-                const periodLabel = daysLeft === 0 ? 'Hoje!' : daysLeft === 1 ? 'Amanhã!' : `Falta(m) ${daysLeft} dia(s)`;
-                emailBody.subject = `Lembrete: ${event.title} — ${periodLabel}`;
+                const isNewEvent = daysLeft === -1;
+                const periodLabel = isNewEvent ? 'Novo Evento!' : (daysLeft === 0 ? 'Hoje!' : daysLeft === 1 ? 'Amanhã!' : `Falta(m) ${daysLeft} dia(s)`);
+                emailBody.subject = isNewEvent ? `Novo Evento: ${event.title}` : `Lembrete: ${event.title} — ${periodLabel}`;
                 emailBody.html = `
                     <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
-                        <h2 style="color: #3b82f6; margin-top: 0;">Lembrete de Evento</h2>
-                        <p>Olá, este é um lembrete automático do seu <strong>Portal PET</strong>.</p>
+                        <h2 style="color: #3b82f6; margin-top: 0;">${isNewEvent ? 'Novo Evento Criado' : 'Lembrete de Evento'}</h2>
+                        <p>Olá, este é um aviso automático do seu <strong>Portal PET</strong>.</p>
                         <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
                             <p style="margin: 5px 0;"><strong>Evento:</strong> ${event.title}</p>
                             <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date(event.start).toLocaleDateString('pt-BR')}</p>
-                            <p style="margin: 5px 0;"><strong>Status:</strong> ${periodLabel}</p>
+                            <p style="margin: 5px 0;"><strong>Status:</strong> ${isNewEvent ? 'Acabou de ser postado' : periodLabel}</p>
                             ${event.description ? `<p style="margin: 5px 0;"><strong>Descrição:</strong> ${event.description}</p>` : ''}
                         </div>
                         <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">Este é um e-mail automático. Por favor, não responda.</p>
@@ -743,10 +744,24 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         };
 
         const getRecipients = (event: CalendarEvent): string[] => {
-            // Sempre enviar para todos os membros ativos
-            return members
-                .map(m => m.email)
-                .filter(Boolean);
+            let recipients: string[] = [];
+
+            // Se houver responsáveis, envia APENAS para eles
+            if (event.responsibles && event.responsibles.length > 0) {
+                recipients = members
+                    .filter(m => event.responsibles?.includes(m.name))
+                    .map(m => m.email)
+                    .filter(Boolean);
+            }
+
+            // Se não houver responsáveis, envia para todos (fallback)
+            if (recipients.length === 0) {
+                recipients = members
+                    .map(m => m.email)
+                    .filter(Boolean);
+            }
+
+            return recipients;
         };
 
         const checkReminders = async () => {
@@ -1081,7 +1096,17 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
         if (inserted) {
             // Update state with the proper event object including start/end Dates
-            setEvents(prev => [...prev, { ...event, id: inserted.id }]);
+            const createdEvent = { ...event, id: inserted.id };
+            setEvents(prev => [...prev, createdEvent]);
+
+            // Notificação Imediata
+            const recipients = getRecipients(createdEvent);
+            if (recipients.length > 0) {
+                console.log(`[Lembrete] Enviando notificação imediata de novo evento para ${recipients.length} pessoas.`);
+                sendReminderEmail(createdEvent, -1, recipients).catch(err => {
+                    console.error("Erro ao enviar e-mail de novo evento:", err);
+                });
+            }
         }
     };
 
