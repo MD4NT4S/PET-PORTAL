@@ -747,7 +747,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
             if (event.responsibles && event.responsibles.length > 0) {
                 recipients = members
-                    .filter(m => event.responsibles?.includes(m.name) && m.role.startsWith('admin_'))
+                    .filter(m => event.responsibles?.includes(m.name))
                     .map(m => m.email)
                     .filter(Boolean);
             }
@@ -758,7 +758,6 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
                     recipients = [me.email];
                 } else {
                     recipients = members
-                        .filter(m => m.role.startsWith('admin_'))
                         .map(m => m.email)
                         .filter(Boolean);
                 }
@@ -768,7 +767,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         };
 
         const checkReminders = async () => {
-            if (!isAdmin || events.length === 0 || members.length === 0) return;
+            if (events.length === 0 || members.length === 0) return;
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
