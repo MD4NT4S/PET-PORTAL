@@ -1097,17 +1097,7 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
         if (inserted) {
             // Update state with the proper event object including start/end Dates
-            const createdEvent = { ...event, id: inserted.id };
-            setEvents(prev => [...prev, createdEvent]);
-
-            // Notificação Imediata
-            const recipients = getRecipients(createdEvent);
-            if (recipients.length > 0) {
-                console.log(`[Lembrete] Enviando notificação imediata de novo evento para ${recipients.length} pessoas.`);
-                sendReminderEmail(createdEvent, -1, recipients).catch((err: any) => {
-                    console.error("Erro ao enviar e-mail de novo evento:", err);
-                });
-            }
+            setEvents(prev => [...prev, { ...event, id: inserted.id }]);
         }
     };
 
