@@ -1,4 +1,4 @@
-project_id = "portal-pet-hub"
+# Supabase config
 
 [functions.manage-user]
 verify_jwt = false
