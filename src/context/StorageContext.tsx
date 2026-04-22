@@ -296,47 +296,39 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_SITE_CONFIG);
     const [loadingConfig, setLoadingConfig] = useState(true);
 
-    const [currentUser, setCurrentUser] = useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<string | null>(() => localStorage.getItem('pet_user'));
     const [isAuthLoading, setIsAuthLoading] = useState(true);
-    const [userRole, setUserRole] = useState<'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null>(null);
+    const [userRole, setUserRole] = useState<'member' | 'admin_master' | 'admin_infra' | 'admin_gp' | 'admin_secretaria' | 'admin_divulgacao' | 'admin_pesquisa' | null>(() => localStorage.getItem('pet_role') as any);
 
     // --- Auth Management (Supabase Auth) ---
     useEffect(() => {
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session) {
-                // Fetch profile with a timeout/safety check to prevent infinite hanging
                 try {
-                    const fetchProfile = supabase
+                    const { data: profile } = await supabase
                         .from('profiles')
                         .select('*')
                         .eq('id', session.user.id)
                         .single();
-                        
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000));
-                    
-                    const response = await Promise.race([fetchProfile, timeoutPromise]) as any;
-                    const profile = response?.data;
-                    const profileError = response?.error;
 
-                    if (profile && !profileError) {
+                    if (profile) {
                         setCurrentUser(profile.full_name || session.user.email);
                         setUserRole(profile.role as any);
-                    } else {
-                        // Fallback to metadata if profile not found or error
-                        setCurrentUser(session.user.user_metadata?.full_name || session.user.email);
-                        setUserRole(session.user.user_metadata?.role || 'member');
+                        localStorage.setItem('pet_user', profile.full_name || session.user.email || '');
+                        localStorage.setItem('pet_role', profile.role);
                     }
                 } catch (err) {
                     console.error("Profile fetch error:", err);
-                    setCurrentUser(session.user.user_metadata?.full_name || session.user.email);
-                    setUserRole(session.user.user_metadata?.role || 'member');
                 } finally {
                     setIsAuthLoading(false);
                 }
             } else {
-                setCurrentUser(null);
-                setUserRole(null);
+                // Only clear if we don't have a custom session in localStorage
+                if (!localStorage.getItem('pet_user')) {
+                    setCurrentUser(null);
+                    setUserRole(null);
+                }
                 setIsAuthLoading(false);
             }
         });
@@ -852,20 +844,16 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         return () => clearTimeout(timeout);
     }, [events.length, isAdmin, members.length]);
 
-    // Auth Persistence
+    // Auth Persistence (Redundant but safety)
     useEffect(() => {
         if (currentUser) {
-            localStorage.setItem('pet-current-user', currentUser);
-        } else {
-            localStorage.removeItem('pet-current-user');
+            localStorage.setItem('pet_user', currentUser);
         }
     }, [currentUser]);
 
     useEffect(() => {
         if (userRole) {
-            localStorage.setItem('pet-user-role', userRole);
-        } else {
-            localStorage.removeItem('pet-user-role');
+            localStorage.setItem('pet_role', userRole);
         }
     }, [userRole]);
 
