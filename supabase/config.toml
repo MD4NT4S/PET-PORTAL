@@ -1,0 +1,4 @@
+project_id = "portal-pet-hub"
+
+[functions.manage-user]
+verify_jwt = false
