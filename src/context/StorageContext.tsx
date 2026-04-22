@@ -1016,44 +1016,18 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
     };
 
     const addMember = async (data: Omit<Member, 'id'>) => {
-        // 1. Create user in Supabase Auth first
-        if (data.email && data.password) {
-            try {
-                const { error: authError } = await supabase.functions.invoke('manage-user', {
-                    body: {
-                        action: 'create',
-                        email: data.email.trim(),
-                        password: data.password
-                    }
-                });
-                if (authError) {
-                    console.error('Error creating auth user:', authError);
-                    toast.error('Erro ao criar credenciais de login. Tente novamente.');
-                    return;
-                }
-            } catch (e) {
-                console.error('Error invoking manage-user:', e);
-                toast.error('Erro ao criar credenciais de login.');
-                return;
-            }
-        }
-
-        // 2. Save to members table
         const { data: inserted, error } = await supabase.from('members').insert(data).select().single();
         if (error) {
             toast.error('Erro ao adicionar membro');
             return;
         }
         if (inserted) {
-            setMembers(prev => [...prev, { ...inserted, photoUrl: inserted.photo_url }].sort((a, b) => a.name.localeCompare(b.name)));
+            setMembers(prev => [...prev, { ...inserted, photoUrl: inserted.photo_url } as Member].sort((a, b) => a.name.localeCompare(b.name)));
             toast.success('Membro adicionado!');
         }
     };
 
     const updateMember = async (id: string, data: Partial<Member>) => {
-        // Find the current member to check for email/password changes
-        const currentMember = members.find(m => m.id === id);
-
         const updateData: any = { ...data };
         if ('photoUrl' in data) {
             updateData.photo_url = data.photoUrl || null;
@@ -1068,46 +1042,6 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        // Sync password with Supabase Auth if password changed
-        if (data.password && currentMember) {
-            const emailToUse = data.email || currentMember.email;
-            try {
-                const { error: authError } = await supabase.functions.invoke('manage-user', {
-                    body: {
-                        action: 'update_password',
-                        email: emailToUse.trim(),
-                        password: data.password
-                    }
-                });
-                if (authError) {
-                    console.error('Error updating auth password:', authError);
-                    toast.warning('Perfil salvo, mas houve erro ao atualizar a senha de login.');
-                }
-            } catch (e) {
-                console.error('Error invoking manage-user for password update:', e);
-                toast.warning('Perfil salvo, mas houve erro ao sincronizar a senha.');
-            }
-        }
-
-        // Sync email with Supabase Auth if email changed
-        if (data.email && currentMember && data.email !== currentMember.email) {
-            try {
-                const { error: authError } = await supabase.functions.invoke('manage-user', {
-                    body: {
-                        action: 'update_email',
-                        email: currentMember.email.trim(),
-                        newEmail: data.email.trim()
-                    }
-                });
-                if (authError) {
-                    console.error('Error updating auth email:', authError);
-                    toast.warning('Perfil salvo, mas houve erro ao atualizar o email de login.');
-                }
-            } catch (e) {
-                console.error('Error invoking manage-user for email update:', e);
-            }
-        }
-
         setMembers(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
         toast.success('Perfil atualizado com sucesso!');
 
@@ -1120,74 +1054,18 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-
     const removeMember = async (id: string) => {
-        // Find the member to get their email for Auth deletion
-        const memberToRemove = members.find(m => m.id === id);
-
         const { error } = await supabase.from('members').delete().eq('id', id);
         if (error) {
             toast.error('Erro ao remover membro');
             return;
         }
-
-        // Also remove from Supabase Auth
-        if (memberToRemove?.email) {
-            try {
-                await supabase.functions.invoke('manage-user', {
-                    body: {
-                        action: 'delete',
-                        email: memberToRemove.email.trim()
-                    }
-                });
-            } catch (e) {
-                console.error('Error removing auth user:', e);
-                // Don't block member removal if auth deletion fails
-            }
-        }
-
         setMembers(prev => prev.filter(m => m.id !== id));
+        toast.success('Membro removido com sucesso!');
     };
 
     const syncAllMembersWithAuth = async () => {
-        const toastId = toast.loading('Iniciando sincronização em massa...');
-        let successCount = 0;
-        let failCount = 0;
-
-        try {
-            for (const member of members) {
-                if (member.email && member.password) {
-                    try {
-                        const { error } = await supabase.functions.invoke('manage-user', {
-                            body: {
-                                action: 'update_password',
-                                email: member.email.trim(),
-                                password: member.password
-                            }
-                        });
-                        if (error) {
-                            console.error(`Error syncing ${member.email}:`, error);
-                            failCount++;
-                        } else {
-                            successCount++;
-                        }
-                    } catch (e) {
-                        console.error(`Invoke error for ${member.email}:`, e);
-                        failCount++;
-                    }
-                }
-            }
-            toast.dismiss(toastId);
-            if (failCount === 0) {
-                toast.success(`Sincronização concluída! ${successCount} membros atualizados.`);
-            } else {
-                toast.warning(`Sincronização finalizada. Sucessos: ${successCount}. Falhas: ${failCount}.`);
-            }
-        } catch (error) {
-            toast.dismiss(toastId);
-            toast.error('Erro geral durante a sincronização.');
-            console.error(error);
-        }
+        toast.info('Sincronização não é mais necessária com o novo sistema de login direto.');
     };
 
     const addEvent = async (event: CalendarEvent) => {
@@ -1700,25 +1578,47 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
 
     const loginUser = async (email: string, password?: string) => {
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password: password || '',
+            // New logic: call Postgres RPC to verify login directly against 'members' table
+            const { data, error } = await supabase.rpc('verify_member_login', {
+                p_email: email,
+                p_password: password || ''
             });
 
             if (error) {
-                return { success: false, error: error.message };
+                console.error('RPC Error:', error);
+                return { success: false, error: 'E-mail ou senha incorretos (ou erro no banco).' };
+            }
+
+            if (!data || data.length === 0) {
+                return { success: false, error: 'E-mail ou senha incorretos.' };
+            }
+
+            const memberData = data[0];
+            
+            // Set user in state and local storage manually since we're bypassing Supabase Auth session
+            setCurrentUser(memberData.name);
+            localStorage.setItem('pet_user', memberData.name);
+            
+            // Try to set role if available
+            if (memberData.role) {
+                setUserRole(memberData.role as any);
+                localStorage.setItem('pet_role', memberData.role);
             }
 
             return { success: true };
         } catch (error: any) {
-            return { success: false, error: error.message };
+            console.error('Login error:', error);
+            return { success: false, error: 'Erro ao realizar login.' };
         }
     };
 
     const logoutUser = async () => {
-        await supabase.auth.signOut();
+        // Since we're bypassing auth, we just clear our local state
+        await supabase.auth.signOut(); // Still sign out just in case
         setCurrentUser(null);
         setUserRole(null);
+        localStorage.removeItem('pet_user');
+        localStorage.removeItem('pet_role');
     };
 
 
