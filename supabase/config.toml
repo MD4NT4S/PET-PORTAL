@@ -1,4 +1,5 @@
-# Supabase config
+# Supabase configuration for manage-user function
+# Project Ref: b1xsgzhsvxeivkpuyiro (detected from UI)
 
 [functions.manage-user]
 verify_jwt = false
