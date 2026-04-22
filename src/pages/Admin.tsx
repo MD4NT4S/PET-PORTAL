@@ -3,7 +3,7 @@ import { useStorage } from '../context/StorageContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Table as TableIcon, LayoutTemplate, LogOut, Users, Trash2, Plus, Minus, Pencil, Check, X, Box, Package, ShieldAlert, Megaphone, Shield } from 'lucide-react';
+import { Download, Table as TableIcon, LayoutTemplate, LogOut, Users, Trash2, Plus, Minus, Pencil, Check, X, Box, Package, ShieldAlert, Megaphone, Shield, RefreshCw } from 'lucide-react';
 
 import { toast } from 'sonner';
 import AdminLogin from '../components/admin/AdminLogin';
@@ -13,7 +13,7 @@ import type { Member, Sector, InventoryItem, Evaluation, Ombudsman } from '../co
 import { supabase } from '../lib/supabase';
 
 export default function Admin() {
-    const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, removeTicket, userRole, removeEvaluation, approveLoanReturn, notices, addNotice, removeNotice, currentUser } = useStorage();
+    const { tickets, evaluations, ombudsman, isAdmin, logoutUser, members, addMember, removeMember, updateMember, updateOmbudsmanStatus, removeOmbudsman, sectors, updateSector, updateSectorItems, loans, updateTicket, removeTicket, userRole, removeEvaluation, approveLoanReturn, notices, addNotice, removeNotice, currentUser, syncAllMembersWithAuth } = useStorage();
 
 
     // Define tabs and permissions
@@ -519,7 +519,22 @@ export default function Admin() {
                 <div className="grid md:grid-cols-2 gap-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Adicionar Membro</CardTitle>
+                            <div className="flex justify-between items-center">
+                                <CardTitle>Adicionar Membro</CardTitle>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => {
+                                        if (confirm('Deseja sincronizar as senhas de TODOS os membros cadastrados com o sistema de login? Isso garantirá que todos possam acessar o portal com a senha listada aqui.')) {
+                                            syncAllMembersWithAuth();
+                                        }
+                                    }}
+                                    className="text-primary-600 border-primary-100 hover:bg-primary-50"
+                                >
+                                    <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                                    Sincronizar Todos
+                                </Button>
+                            </div>
                             <CardDescription>Cadastre um novo integrante do PET.</CardDescription>
                         </CardHeader>
                         <CardContent>
