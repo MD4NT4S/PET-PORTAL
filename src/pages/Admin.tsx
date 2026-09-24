@@ -80,6 +80,9 @@ export default function Admin() {
     const [newNoticeType, setNewNoticeType] = useState<'info' | 'alert' | 'event'>('info');
     const [noticeTarget, setNoticeTarget] = useState<'everyone' | 'admins' | 'me'>('admins');
 
+    // Loan Search State
+    const [loanSearchTerm, setLoanSearchTerm] = useState('');
+
     // Evaluation Viewer State
     const [evalViewMode, setEvalViewMode] = useState<'members' | 'months' | 'detail'>('members');
     const [selectedMemberEval, setSelectedMemberEval] = useState<Member | null>(null);
@@ -102,6 +105,13 @@ export default function Admin() {
         }
         return true;
     });
+
+    // Filter loans based on search
+    const filteredLoans = loans.filter(loan => 
+        loan.itemName.toLowerCase().includes(loanSearchTerm.toLowerCase()) || 
+        loan.userName.toLowerCase().includes(loanSearchTerm.toLowerCase()) || 
+        loan.status.toLowerCase().includes(loanSearchTerm.toLowerCase())
+    );
 
     if (!isAdmin) {
         return <AdminLogin />;
@@ -722,32 +732,46 @@ export default function Admin() {
                     {/* Loan History */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Histórico de Empréstimos</CardTitle>
-                            <CardDescription>Registro de retiradas e devoluções de materiais.</CardDescription>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                <div>
+                                    <CardTitle>Histórico de Empréstimos</CardTitle>
+                                    <CardDescription>Registro de retiradas e devoluções de materiais.</CardDescription>
+                                </div>
+                                <div className="w-full sm:w-72">
+                                    <Input 
+                                        type="text" 
+                                        placeholder="Buscar por item, membro ou status..." 
+                                        value={loanSearchTerm}
+                                        onChange={(e) => setLoanSearchTerm(e.target.value)}
+                                        className="w-full bg-white dark:bg-secondary-900"
+                                    />
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="rounded-md border border-secondary-200 dark:border-secondary-800 overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-secondary-700 uppercase bg-secondary-50 dark:bg-secondary-900 dark:text-secondary-300">
-                                        <tr>
-                                            <th className="px-6 py-3">Data</th>
-                                            <th className="px-6 py-3">Item</th>
-                                            <th className="px-6 py-3">Qtd</th>
-                                            <th className="px-6 py-3">Membro</th>
-                                            <th className="px-6 py-3">Tipo</th>
-                                            <th className="px-6 py-3">Devolução</th>
-                                            <th className="px-6 py-3">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-secondary-200 dark:divide-secondary-800">
-                                        {loans.length === 0 ? (
+                            <div className="rounded-md border border-secondary-200 dark:border-secondary-800 overflow-hidden">
+                                <div className="overflow-x-auto overflow-y-auto max-h-[500px]">
+                                    <table className="w-full text-sm text-left relative">
+                                        <thead className="text-xs text-secondary-700 uppercase bg-secondary-50 dark:bg-secondary-900 dark:text-secondary-300 sticky top-0 z-10 shadow-sm">
                                             <tr>
-                                                <td colSpan={7} className="px-6 py-12 text-center text-secondary-500">
-                                                    Nenhum empréstimo registrado.
-                                                </td>
+                                                <th className="px-6 py-3 bg-secondary-50 dark:bg-secondary-900">Data</th>
+                                                <th className="px-6 py-3 bg-secondary-50 dark:bg-secondary-900">Item</th>
+                                                <th className="px-6 py-3 bg-secondary-50 dark:bg-secondary-900">Qtd</th>
+                                                <th className="px-6 py-3 bg-secondary-50 dark:bg-secondary-900">Membro</th>
+                                                <th className="px-6 py-3 bg-secondary-50 dark:bg-secondary-900">Tipo</th>
+                                                <th className="px-6 py-3 bg-secondary-50 dark:bg-secondary-900">Devolução</th>
+                                                <th className="px-6 py-3 bg-secondary-50 dark:bg-secondary-900">Status</th>
                                             </tr>
-                                        ) : (
-                                            loans.map(loan => (
+                                        </thead>
+                                        <tbody className="divide-y divide-secondary-200 dark:divide-secondary-800">
+                                            {filteredLoans.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={7} className="px-6 py-12 text-center text-secondary-500">
+                                                        {loans.length === 0 ? "Nenhum empréstimo registrado." : "Nenhum empréstimo encontrado para sua busca."}
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                filteredLoans.map(loan => (
                                                 <tr key={loan.id} className="bg-white dark:bg-secondary-950 hover:bg-secondary-50 dark:hover:bg-secondary-900">
                                                     <td className="px-6 py-4 font-medium whitespace-nowrap">
                                                         {new Date(loan.date).toLocaleDateString()}
@@ -786,6 +810,7 @@ export default function Admin() {
                                         )}
                                     </tbody>
                                 </table>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
